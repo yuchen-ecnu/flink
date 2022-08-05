@@ -28,6 +28,7 @@ import org.apache.flink.configuration.DescribedEnum;
 import org.apache.flink.configuration.description.Description;
 import org.apache.flink.configuration.description.Formatter;
 import org.apache.flink.configuration.description.HtmlFormatter;
+import org.apache.flink.util.TernaryBoolean;
 import org.apache.flink.configuration.description.InlineElement;
 import org.apache.flink.configuration.description.TextElement;
 import org.apache.flink.docs.util.ConfigurationOptionLocator;
@@ -283,17 +284,37 @@ public class ConfigOptionsDocGenerator {
      */
     private static String toHtmlTable(final List<OptionWithMetaInfo> options) {
         StringBuilder htmlTable = new StringBuilder();
-        htmlTable.append("<table class=\"configuration table table-bordered\">\n");
-        htmlTable.append("    <thead>\n");
-        htmlTable.append("        <tr>\n");
-        htmlTable.append("            <th class=\"text-left\" style=\"width: 20%\">Key</th>\n");
-        htmlTable.append("            <th class=\"text-left\" style=\"width: 15%\">Default</th>\n");
-        htmlTable.append("            <th class=\"text-left\" style=\"width: 10%\">Type</th>\n");
-        htmlTable.append(
-                "            <th class=\"text-left\" style=\"width: 55%\">Description</th>\n");
-        htmlTable.append("        </tr>\n");
-        htmlTable.append("    </thead>\n");
-        htmlTable.append("    <tbody>\n");
+        if (options.get(0).option.getRequiredFlag() == TernaryBoolean.UNDEFINED) {
+            htmlTable.append("<table class=\"configuration table table-bordered\">\n");
+            htmlTable.append("    <thead>\n");
+            htmlTable.append("        <tr>\n");
+            htmlTable.append("            <th class=\"text-left\" style=\"width: 20%\">Key</th>\n");
+            htmlTable.append(
+                    "            <th class=\"text-left\" style=\"width: 15%\">Default</th>\n");
+            htmlTable.append(
+                    "            <th class=\"text-left\" style=\"width: 10%\">Type</th>\n");
+            htmlTable.append(
+                    "            <th class=\"text-left\" style=\"width: 55%\">Description</th>\n");
+            htmlTable.append("        </tr>\n");
+            htmlTable.append("    </thead>\n");
+            htmlTable.append("    <tbody>\n");
+        } else {
+            htmlTable.append("<table class=\"configuration table table-bordered\">\n");
+            htmlTable.append("    <thead>\n");
+            htmlTable.append("        <tr>\n");
+            htmlTable.append("            <th class=\"text-left\" style=\"width: 20%\">Key</th>\n");
+            htmlTable.append(
+                    "            <th class=\"text-left\" style=\"width: 15%\">Default</th>\n");
+            htmlTable.append(
+                    "            <th class=\"text-left\" style=\"width: 10%\">Type</th>\n");
+            htmlTable.append(
+                    "            <th class=\"text-left\" style=\"width: 10%\">Require</th>\n");
+            htmlTable.append(
+                    "            <th class=\"text-left\" style=\"width: 45%\">Description</th>\n");
+            htmlTable.append("        </tr>\n");
+            htmlTable.append("    </thead>\n");
+            htmlTable.append("    <tbody>\n");
+        }
 
         for (OptionWithMetaInfo option : options) {
             htmlTable.append(toHtmlString(option));
@@ -335,23 +356,46 @@ public class ConfigOptionsDocGenerator {
             }
         }
 
-        return ""
-                + "        <tr>\n"
-                + "            <td><h5>"
-                + escapeCharacters(getDocumentedKey(optionWithMetaInfo))
-                + "</h5>"
-                + execModeStringBuilder.toString()
-                + "</td>\n"
-                + "            <td style=\"word-wrap: break-word;\">"
-                + escapeCharacters(addWordBreakOpportunities(defaultValue))
-                + "</td>\n"
-                + "            <td>"
-                + type
-                + "</td>\n"
-                + "            <td>"
-                + getDescription(optionWithMetaInfo)
-                + "</td>\n"
-                + "        </tr>\n";
+        if (option.getRequiredFlag() == TernaryBoolean.UNDEFINED) {
+            return ""
+                    + "        <tr>\n"
+                    + "            <td><h5>"
+                    + escapeCharacters(option.key())
+                    + "</h5>"
+                    + execModeStringBuilder.toString()
+                    + "</td>\n"
+                    + "            <td style=\"word-wrap: break-word;\">"
+                    + escapeCharacters(addWordBreakOpportunities(defaultValue))
+                    + "</td>\n"
+                    + "            <td>"
+                    + type
+                    + "</td>\n"
+                    + "            <td>"
+                    + formatter.format(option.description())
+                    + "</td>\n"
+                    + "        </tr>\n";
+        } else {
+            return ""
+                    + "        <tr>\n"
+                    + "            <td><h5>"
+                    + escapeCharacters(option.key())
+                    + "</h5>"
+                    + execModeStringBuilder.toString()
+                    + "</td>\n"
+                    + "            <td style=\"word-wrap: break-word;\">"
+                    + escapeCharacters(addWordBreakOpportunities(defaultValue))
+                    + "</td>\n"
+                    + "            <td>"
+                    + type
+                    + "</td>\n"
+                    + "            <td>"
+                    + escapeCharacters(option.isRequired())
+                    + "</td>\n"
+                    + "            <td>"
+                    + formatter.format(option.description())
+                    + "</td>\n"
+                    + "        </tr>\n";
+        }
     }
 
     @VisibleForTesting

@@ -20,6 +20,7 @@ package org.apache.flink.configuration;
 
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.configuration.description.Description;
+import org.apache.flink.util.TernaryBoolean;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -58,6 +59,9 @@ public class ConfigOption<T> {
 
     /** The description for this option. */
     private final Description description;
+
+    /** The key is required or not. */
+    private TernaryBoolean requiredFlag = TernaryBoolean.UNDEFINED;
 
     /**
      * Type of the value that this ConfigOption describes.
@@ -102,6 +106,23 @@ public class ConfigOption<T> {
             FallbackKey... fallbackKeys) {
         this.key = checkNotNull(key);
         this.description = description;
+        this.defaultValue = defaultValue;
+        this.fallbackKeys = fallbackKeys == null || fallbackKeys.length == 0 ? EMPTY : fallbackKeys;
+        this.clazz = checkNotNull(clazz);
+        this.isList = isList;
+    }
+
+    ConfigOption(
+            String key,
+            Class<?> clazz,
+            Description description,
+            TernaryBoolean requiredFlag,
+            T defaultValue,
+            boolean isList,
+            FallbackKey... fallbackKeys) {
+        this.key = checkNotNull(key);
+        this.description = description;
+        this.requiredFlag = requiredFlag;
         this.defaultValue = defaultValue;
         this.fallbackKeys = fallbackKeys == null || fallbackKeys.length == 0 ? EMPTY : fallbackKeys;
         this.clazz = checkNotNull(clazz);
@@ -157,6 +178,19 @@ public class ConfigOption<T> {
                         .toArray(FallbackKey[]::new);
         return new ConfigOption<>(
                 key, clazz, description, defaultValue, isList, mergedAlternativeKeys);
+    }
+
+    public TernaryBoolean getRequiredFlag() {
+        return requiredFlag;
+    }
+
+    public ConfigOption<T> setRequiredFlag(TernaryBoolean requiredFlag) {
+        this.requiredFlag = requiredFlag;
+        return this;
+    }
+
+    public String isRequired() {
+        return requiredFlag == TernaryBoolean.TRUE ? "是" : "否";
     }
 
     /**
