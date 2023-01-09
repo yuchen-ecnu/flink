@@ -47,6 +47,8 @@ public interface KafkaRecordDeserializationSchema<T> extends Serializable, Resul
      */
     default void open(DeserializationSchema.InitializationContext context) throws Exception {}
 
+    default void close() throws Exception {}
+
     /**
      * Deserializes the byte message.
      *

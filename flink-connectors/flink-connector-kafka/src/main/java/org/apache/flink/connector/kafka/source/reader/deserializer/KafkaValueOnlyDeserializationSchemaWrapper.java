@@ -46,6 +46,13 @@ class KafkaValueOnlyDeserializationSchemaWrapper<T> implements KafkaRecordDeseri
     }
 
     @Override
+    public void close() throws Exception {
+        if (deserializationSchema != null) {
+            deserializationSchema.close();
+        }
+    }
+
+    @Override
     public void deserialize(ConsumerRecord<byte[], byte[]> message, Collector<T> out)
             throws IOException {
         deserializationSchema.deserialize(message.value(), out);

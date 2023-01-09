@@ -80,6 +80,13 @@ class KafkaValueOnlyDeserializerWrapper<T> implements KafkaRecordDeserialization
     }
 
     @Override
+    public void close() throws Exception {
+        if (deserializer != null) {
+            deserializer.close();
+        }
+    }
+
+    @Override
     public void deserialize(ConsumerRecord<byte[], byte[]> record, Collector<T> collector)
             throws IOException {
         if (deserializer == null) {

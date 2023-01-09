@@ -961,6 +961,14 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
             }
         }
 
+        if (deserializer != null) {
+            try {
+                deserializer.close();
+            } catch (Exception e) {
+                exception = ExceptionUtils.firstOrSuppressed(e, exception);
+            }
+        }
+
         try {
             super.close();
         } catch (Exception e) {

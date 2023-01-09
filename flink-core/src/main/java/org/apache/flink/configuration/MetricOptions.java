@@ -333,6 +333,20 @@ public class MetricOptions {
                     .withDescription(
                             "Defines the number of measured latencies to maintain at each operator.");
 
+    /** custom Kafka Record Latency. */
+    public static final ConfigOption<Long> KAFKA_RECORD_LATENCY_SAMPLING_RATIO =
+            key("metrics.kafka.record-latency-histogram.sampling-ratio")
+                    .defaultValue(-1L)
+                    .withDescription(
+                            "Sampling ratio when histogram kafka record latency based on kafka timestamp property");
+
+    /** Custom Kafka Record Latency Time Window. */
+    public static final ConfigOption<Long> KAFKA_RECORD_LATENCY_TIME_WINDOW =
+            key("metrics.kafka.record-latency-histogram.time-window")
+                    .defaultValue(30000L)
+                    .withDescription(
+                            "Maximum time-window when histogram kafka record latency based on kafka timestamp property");
+
     /**
      * Whether Flink should report system resource metrics such as machine's CPU, memory or network
      * usage.

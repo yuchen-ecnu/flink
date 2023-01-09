@@ -72,4 +72,13 @@ public interface SourceReaderContext {
     default int currentParallelism() {
         throw new UnsupportedOperationException();
     }
+
+    /**
+     * Check if checkpointing is enabled or not.
+     *
+     * @return checkpointing is enabled or not.
+     */
+    default boolean isCheckpointingEnabled() {
+        throw new UnsupportedOperationException();
+    }
 }

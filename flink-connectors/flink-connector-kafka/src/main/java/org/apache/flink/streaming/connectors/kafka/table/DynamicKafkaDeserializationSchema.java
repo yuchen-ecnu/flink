@@ -95,6 +95,16 @@ class DynamicKafkaDeserializationSchema implements KafkaDeserializationSchema<Ro
     }
 
     @Override
+    public void close() throws Exception {
+        if (keyDeserialization != null) {
+            keyDeserialization.close();
+        }
+        if (valueDeserialization != null) {
+            valueDeserialization.close();
+        }
+    }
+
+    @Override
     public boolean isEndOfStream(RowData nextElement) {
         return false;
     }

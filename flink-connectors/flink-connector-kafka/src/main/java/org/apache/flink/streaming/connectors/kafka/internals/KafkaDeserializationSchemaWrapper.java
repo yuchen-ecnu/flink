@@ -67,4 +67,11 @@ public class KafkaDeserializationSchemaWrapper<T> implements KafkaDeserializatio
     public TypeInformation<T> getProducedType() {
         return deserializationSchema.getProducedType();
     }
+
+    @Override
+    public void close() throws Exception {
+        if (deserializationSchema != null) {
+            deserializationSchema.close();
+        }
+    }
 }

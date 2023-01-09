@@ -307,6 +307,11 @@ public class SourceOperator<OUT, SplitT extends SourceSplit> extends AbstractStr
                     public int currentParallelism() {
                         return getRuntimeContext().getNumberOfParallelSubtasks();
                     }
+
+                    @Override
+                    public boolean isCheckpointingEnabled() {
+                        return getRuntimeContext().isCheckpointingEnabled();
+                    }
                 };
 
         sourceReader = readerFactory.apply(context);

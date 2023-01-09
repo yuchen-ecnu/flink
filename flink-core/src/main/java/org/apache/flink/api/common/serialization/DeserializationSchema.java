@@ -58,6 +58,8 @@ public interface DeserializationSchema<T> extends Serializable, ResultTypeQuerya
     @PublicEvolving
     default void open(InitializationContext context) throws Exception {}
 
+    default void close() throws Exception {}
+
     /**
      * Deserializes the byte message.
      *

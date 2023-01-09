@@ -52,11 +52,15 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** Default implementation of {@link JobLeaderService}. */
 public class DefaultJobLeaderService implements JobLeaderService {
 
     private static final Logger LOG = LoggerFactory.getLogger(DefaultJobLeaderService.class);
+
+    private static volatile String JOB_MANAGER_ADDRESS;
 
     /** Self's location, used for the job manager connection. */
     private final UnresolvedTaskManagerLocation ownLocation;
@@ -385,6 +389,8 @@ public class DefaultJobLeaderService implements JobLeaderService {
                         JMTMRegistrationSuccess,
                         JMTMRegistrationRejection> {
 
+            private final Pattern DOMAIN_PATTERN = Pattern.compile("@(.*?):");
+
             JobManagerRegisteredRpcConnection(
                     Logger log, String targetAddress, JobMasterId jobMasterId, Executor executor) {
                 super(log, targetAddress, jobMasterId, executor);
@@ -418,7 +424,10 @@ public class DefaultJobLeaderService implements JobLeaderService {
                                     "Successful registration at job manager {} for job {}.",
                                     getTargetAddress(),
                                     jobId);
-
+                            Matcher matcher = DOMAIN_PATTERN.matcher(getTargetAddress());
+                            if (matcher.find()) {
+                                JOB_MANAGER_ADDRESS = matcher.group(1);
+                            }
                             jobLeaderListener.jobManagerGainedLeadership(
                                     jobId, getTargetGateway(), success);
                         },
@@ -546,5 +555,9 @@ public class DefaultJobLeaderService implements JobLeaderService {
                 "The service is currently not running.");
 
         return jobLeaderServices.containsKey(jobId);
+    }
+
+    public static String getJobManagerAddress() {
+        return JOB_MANAGER_ADDRESS;
     }
 }

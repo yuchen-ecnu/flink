@@ -49,19 +49,6 @@ under the License.
 		<developerConnection>scm:git:https://gitbox.apache.org/repos/asf/flink.git</developerConnection>
 	</scm>
 
-	<repositories>
-		<repository>
-			<id>repository.jboss.org</id>
-			<url>https://repository.jboss.org/nexus/content/groups/public/</url>
-			<snapshots>
-				<enabled>false</enabled>
-			</snapshots>
-			<releases>
-				<enabled>false</enabled>
-			</releases>
-		</repository>
-	</repositories>
-
 	<modules>
 		<module>flink-annotations</module>
 		<module>flink-architecture-tests</module>
@@ -2245,4 +2232,17 @@ under the License.
 		</pluginManagement>
 	</build>
 
+
+	<distributionManagement>
+		<snapshotRepository>
+			<id>snapshots</id>
+			<name>nexus snapshot repository</name>
+			<url>http://mvn.devops.xiaohongshu.com/repository/maven-snapshots/</url>
+		</snapshotRepository>
+		<repository>
+			<id>releases</id>
+			<name>nexus repository</name>
+			<url>http://mvn.devops.xiaohongshu.com/repository/maven-releases/</url>
+		</repository>
+	</distributionManagement>
 </project>

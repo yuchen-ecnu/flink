@@ -46,6 +46,8 @@ public interface KafkaDeserializationSchema<T> extends Serializable, ResultTypeQ
      */
     default void open(DeserializationSchema.InitializationContext context) throws Exception {}
 
+    default void close() throws Exception {}
+
     /**
      * Method to decide whether the element signals the end of the stream. If true is returned the
      * element won't be emitted.
