@@ -18,14 +18,20 @@
 
 package org.apache.flink.kubernetes.entrypoint;
 
+import org.apache.commons.cli.ParseException;
+
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.client.deployment.application.ApplicationClusterEntryPoint;
 import org.apache.flink.client.deployment.application.ApplicationConfiguration;
 import org.apache.flink.client.program.DefaultPackagedProgramRetriever;
 import org.apache.flink.client.program.PackagedProgram;
 import org.apache.flink.client.program.PackagedProgramRetriever;
 import org.apache.flink.client.program.PackagedProgramUtils;
+import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.PipelineOptions;
+import org.apache.flink.kubernetes.cli.CliParser;
 import org.apache.flink.kubernetes.utils.KubernetesUtils;
 import org.apache.flink.runtime.entrypoint.ClusterEntrypoint;
 import org.apache.flink.runtime.entrypoint.ClusterEntrypointUtils;
@@ -36,9 +42,13 @@ import org.apache.flink.runtime.util.SignalHandler;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.Preconditions;
 
+import red.data.platform.flink.desc.LocalJarInfoDesc;
+
 import javax.annotation.Nullable;
 
 import java.io.File;
+import java.net.URL;
+import java.util.Collections;
 import java.util.List;
 
 /** An {@link ApplicationClusterEntryPoint} for Kubernetes. */
@@ -106,7 +116,34 @@ public final class KubernetesApplicationClusterEntrypoint extends ApplicationClu
             @Nullable final String jobClassName)
             throws FlinkException {
 
+        final String jobType = configuration.getString(PipelineOptions.JOB_TYPE);
+
         final File userLibDir = ClusterEntrypointUtils.tryFindUserLibDirectory().orElse(null);
+        Boolean connectorJarLoadFirst = false;
+        List<String> addJarList = Collections.emptyList();
+        List<String> removeJarList = Collections.emptyList();
+        List<URL> externalJars = Collections.emptyList();
+
+
+        if (!"JAR".equalsIgnoreCase(jobType)) {
+            // sql-committer jar as default.
+            LOG.info("running sql-committer sql task");
+            connectorJarLoadFirst =
+                    configuration.getBoolean(
+                            ConfigOptions.key("connector.jar.load.first")
+                                    .booleanType()
+                                    .defaultValue(false));
+            try {
+                CliParser cliParser = new CliParser(programArguments);
+                Tuple2<List<URL>, LocalJarInfoDesc> tuple2 =
+                        cliParser.parseRemoteUrlAndLocalJarFromArgs();
+                externalJars = tuple2.f0;
+                addJarList = tuple2.f1.getAddJarList();
+                removeJarList = tuple2.f1.getRemoveJarList();
+            } catch (Exception e) {
+                throw new FlinkException(e);
+            }
+        }
 
         // No need to do pipelineJars validation if it is a PyFlink job.
         if (!(PackagedProgramUtils.isPython(jobClassName)
@@ -115,10 +152,10 @@ public final class KubernetesApplicationClusterEntrypoint extends ApplicationClu
                     KubernetesUtils.checkJarFileForApplicationMode(configuration);
             Preconditions.checkArgument(pipelineJars.size() == 1, "Should only have one jar");
             return DefaultPackagedProgramRetriever.create(
-                    userLibDir, pipelineJars.get(0), jobClassName, programArguments, configuration);
+                    userLibDir, pipelineJars.get(0), jobClassName, programArguments,externalJars,connectorJarLoadFirst,addJarList,removeJarList, configuration);
         }
 
         return DefaultPackagedProgramRetriever.create(
-                userLibDir, jobClassName, programArguments, configuration);
+                userLibDir, jobClassName, programArguments,externalJars,connectorJarLoadFirst,addJarList,removeJarList, configuration);
     }
 }

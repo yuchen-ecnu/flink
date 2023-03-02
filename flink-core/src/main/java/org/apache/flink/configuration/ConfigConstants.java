@@ -1754,7 +1754,7 @@ public final class ConfigConstants {
     public static final String ENV_FLINK_HOME_DIR = "FLINK_HOME";
 
     /** The user lib directory name. */
-    public static final String DEFAULT_FLINK_USR_LIB_DIR = "usrlib";
+    public static final String DEFAULT_FLINK_USR_LIB_DIR = "connector-lib";
 
     // ---------------------------- Encoding ------------------------------
 

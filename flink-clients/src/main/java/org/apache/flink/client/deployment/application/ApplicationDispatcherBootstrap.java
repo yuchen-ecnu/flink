@@ -43,6 +43,7 @@ import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.messages.FlinkJobNotFoundException;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.util.ExceptionUtils;
+import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.concurrent.FutureUtils;
 import org.apache.flink.util.concurrent.ScheduledExecutor;
@@ -90,6 +91,8 @@ public class ApplicationDispatcherBootstrap implements DispatcherBootstrap {
         return applicationStatus == ApplicationStatus.CANCELED
                 || applicationStatus == ApplicationStatus.FAILED;
     }
+
+    private static final int DELAY_SHUTDOWN = 20;
 
     private final PackagedProgram application;
 
@@ -156,52 +159,43 @@ public class ApplicationDispatcherBootstrap implements DispatcherBootstrap {
      */
     private CompletableFuture<Acknowledge> finishBootstrapTasks(
             final DispatcherGateway dispatcherGateway) {
-        final CompletableFuture<Acknowledge> shutdownFuture =
-                applicationCompletionFuture
-                        .handle(
-                                (ignored, t) -> {
-                                    if (t == null) {
-                                        LOG.info("Application completed SUCCESSFULLY");
-                                        return finish(
-                                                dispatcherGateway, ApplicationStatus.SUCCEEDED);
-                                    }
-                                    final Optional<ApplicationStatus> maybeApplicationStatus =
-                                            extractApplicationStatus(t);
-                                    if (maybeApplicationStatus.isPresent()
-                                            && isCanceledOrFailed(maybeApplicationStatus.get())) {
-                                        final ApplicationStatus applicationStatus =
-                                                maybeApplicationStatus.get();
-                                        LOG.info("Application {}: ", applicationStatus, t);
-                                        return finish(dispatcherGateway, applicationStatus);
-                                    }
-                                    if (t instanceof CancellationException) {
-                                        LOG.warn(
-                                                "Application has been cancelled because the {} is being stopped.",
-                                                ApplicationDispatcherBootstrap.class
-                                                        .getSimpleName());
-                                        return CompletableFuture.completedFuture(Acknowledge.get());
-                                    }
-                                    LOG.warn("Application failed unexpectedly: ", t);
-                                    return FutureUtils.<Acknowledge>completedExceptionally(t);
-                                })
-                        .thenCompose(Function.identity());
-        FutureUtils.handleUncaughtException(shutdownFuture, (t, e) -> errorHandler.onFatalError(e));
-        return shutdownFuture;
-    }
+        return applicationCompletionFuture
+                .handle(
+                        (r, t) -> {
+                            LOG.info("Application completed delay {} seconds ", DELAY_SHUTDOWN);
+                            try {
+                                Thread.sleep(DELAY_SHUTDOWN * 1000);
+                            } catch (InterruptedException e) {
+                                LOG.error("Application completed deley exception", e);
+                            }
+                            if (t == null) {
+                                LOG.info("Application completed SUCCESSFULLY");
+                                return dispatcherGateway.shutDownCluster(
+                                        ApplicationStatus.SUCCEEDED);
+                            }
 
-    private CompletableFuture<Acknowledge> finish(
-            DispatcherGateway dispatcherGateway, ApplicationStatus applicationStatus) {
-        boolean shouldShutDownOnFinish =
-                configuration.getBoolean(DeploymentOptions.SHUTDOWN_ON_APPLICATION_FINISH);
-        return shouldShutDownOnFinish
-                ? dispatcherGateway.shutDownCluster(applicationStatus)
-                : CompletableFuture.completedFuture(Acknowledge.get());
-    }
+                            final Optional<UnsuccessfulExecutionException> exception =
+                                    ExceptionUtils.findThrowable(
+                                            t, UnsuccessfulExecutionException.class);
 
-    private Optional<ApplicationStatus> extractApplicationStatus(Throwable t) {
-        final Optional<UnsuccessfulExecutionException> maybeException =
-                ExceptionUtils.findThrowable(t, UnsuccessfulExecutionException.class);
-        return maybeException.map(UnsuccessfulExecutionException::getStatus);
+                            if (exception.isPresent()) {
+                                final ApplicationStatus applicationStatus =
+                                        exception.get().getStatus();
+
+                                if (applicationStatus == ApplicationStatus.CANCELED
+                                        || applicationStatus == ApplicationStatus.FAILED) {
+                                    LOG.info("Application {}: ", applicationStatus, t);
+                                    return dispatcherGateway.shutDownCluster(applicationStatus);
+                                }
+                            }
+
+                            LOG.warn("Application failed unexpectedly: ", t);
+                            this.errorHandler.onFatalError(
+                                    new FlinkException("Application failed unexpectedly.", t));
+
+                            return FutureUtils.<Acknowledge>completedExceptionally(t);
+                        })
+                .thenCompose(Function.identity());
     }
 
     private CompletableFuture<Void> fixJobIdAndRunApplicationAsync(

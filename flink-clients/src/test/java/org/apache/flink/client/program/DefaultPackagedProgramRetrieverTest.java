@@ -45,6 +45,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -174,6 +175,7 @@ class DefaultPackagedProgramRetrieverTest {
                         null,
                         singleEntryClassClasspathProvider.getJobClassName(),
                         new String[0],
+                        Collections.emptyList(),false,Collections.emptyList(),Collections.emptyList(),
                         new Configuration());
 
         // the right information is picked up without any error
@@ -196,6 +198,7 @@ class DefaultPackagedProgramRetrieverTest {
                         null,
                         testJobEntryClassClasspathProvider.getJobClassName(),
                         ClasspathProviderExtension.parametersForTestJob(expectedSuffix),
+                        Collections.emptyList(),false,Collections.emptyList(),Collections.emptyList(),
                         new Configuration());
 
         final JobGraph jobGraph = retrieveJobGraph(retriever, configuration);
@@ -221,6 +224,7 @@ class DefaultPackagedProgramRetrieverTest {
                         null,
                         null,
                         ClasspathProviderExtension.parametersForTestJob(expectedSuffix),
+                        Collections.emptyList(),false,Collections.emptyList(),Collections.emptyList(),
                         new Configuration());
 
         final JobGraph jobGraph = retrieveJobGraph(retrieverUnderTest, new Configuration());
@@ -243,6 +247,7 @@ class DefaultPackagedProgramRetrieverTest {
                         null,
                         testJobEntryClassClasspathProvider.getJobClassName(),
                         ClasspathProviderExtension.parametersForTestJob(expectedSuffix),
+                        Collections.emptyList(),false,Collections.emptyList(),Collections.emptyList(),
                         new Configuration());
 
         final JobGraph jobGraph = retrieveJobGraph(retrieverUnderTest, new Configuration());
@@ -268,6 +273,7 @@ class DefaultPackagedProgramRetrieverTest {
                         null,
                         testJobEntryClassClasspathProvider.getJobClassName(),
                         ClasspathProviderExtension.parametersForTestJob(expectedSuffix),
+                        Collections.emptyList(),false,Collections.emptyList(),Collections.emptyList(),
                         new Configuration());
 
         final JobGraph jobGraph = retrieveJobGraph(retrieverUnderTest, configuration);
@@ -285,6 +291,7 @@ class DefaultPackagedProgramRetrieverTest {
                                             null,
                                             "NotExistingClass",
                                             new String[0],
+                                            Collections.emptyList(),false,Collections.emptyList(),Collections.emptyList(),
                                             new Configuration());
                             // the getPackagedProgram fails do to the missing class. We could make
                             // it fail earlier by
@@ -307,6 +314,7 @@ class DefaultPackagedProgramRetrieverTest {
                                                 noEntryClassClasspathProvider.getDirectory(),
                                                 jobClassName,
                                                 new String[0],
+                                                Collections.emptyList(),false,Collections.emptyList(),Collections.emptyList(),
                                                 new Configuration())
                                         .getPackagedProgram())
                 .isInstanceOf(FlinkException.class)
@@ -328,6 +336,7 @@ class DefaultPackagedProgramRetrieverTest {
                                     multipleEntryClassesClasspathProvider.getDirectory(),
                                     null,
                                     new String[0],
+                                    Collections.emptyList(),false,Collections.emptyList(),Collections.emptyList(),
                                     new Configuration());
                         })
                 .isInstanceOf(FlinkException.class);
@@ -338,7 +347,8 @@ class DefaultPackagedProgramRetrieverTest {
         assertThatThrownBy(
                         () ->
                                 DefaultPackagedProgramRetriever.create(
-                                        null, null, new String[0], new Configuration()))
+                                        null, null, new String[0],
+                                        Collections.emptyList(),false,Collections.emptyList(),Collections.emptyList(),new Configuration()))
                 .isInstanceOf(FlinkException.class);
     }
 
@@ -349,6 +359,7 @@ class DefaultPackagedProgramRetrieverTest {
                         multipleEntryClassesClasspathProvider.getDirectory(),
                         multipleEntryClassesClasspathProvider.getJobClassName(),
                         new String[0],
+                        Collections.emptyList(),false,Collections.emptyList(),Collections.emptyList(),
                         new Configuration());
         assertThat(retriever.getPackagedProgram().getMainClassName())
                 .isEqualTo(multipleEntryClassesClasspathProvider.getJobClassName());
@@ -364,6 +375,7 @@ class DefaultPackagedProgramRetrieverTest {
                         null,
                         multipleEntryClassesClasspathProvider.getJobClassName(),
                         new String[0],
+                        Collections.emptyList(),false,Collections.emptyList(),Collections.emptyList(),
                         new Configuration());
         assertThat(retriever.getPackagedProgram().getMainClassName())
                 .isEqualTo(multipleEntryClassesClasspathProvider.getJobClassName());
@@ -377,6 +389,7 @@ class DefaultPackagedProgramRetrieverTest {
                         singleEntryClassClasspathProvider.getDirectory(),
                         null,
                         ClasspathProviderExtension.parametersForTestJob("suffix"),
+                        Collections.emptyList(),false,Collections.emptyList(),Collections.emptyList(),
                         new Configuration());
         final JobGraph jobGraph = retrieveJobGraph(retrieverUnderTest, new Configuration());
         final List<String> actualClasspath =
@@ -397,6 +410,7 @@ class DefaultPackagedProgramRetrieverTest {
                         singleEntryClassClasspathProvider.getDirectory(),
                         singleEntryClassClasspathProvider.getJobClassName(),
                         ClasspathProviderExtension.parametersForTestJob("suffix"),
+                        Collections.emptyList(),false,Collections.emptyList(),Collections.emptyList(),
                         new Configuration());
         final JobGraph jobGraph = retrieveJobGraph(retrieverUnderTest, new Configuration());
         final List<String> actualClasspath =
@@ -425,6 +439,7 @@ class DefaultPackagedProgramRetrieverTest {
                         null,
                         singleEntryClassClasspathProvider.getJobClassName(),
                         ClasspathProviderExtension.parametersForTestJob("suffix"),
+                        Collections.emptyList(),false,Collections.emptyList(),Collections.emptyList(),
                         configuration);
         final JobGraph jobGraph = retrieveJobGraph(retrieverUnderTest, new Configuration());
         assertThat(jobGraph.getClasspaths()).isEqualTo(expectedMergedURLs);
@@ -439,6 +454,7 @@ class DefaultPackagedProgramRetrieverTest {
                         testJobEntryClassClasspathProvider.getJobJar(),
                         null,
                         ClasspathProviderExtension.parametersForTestJob("suffix"),
+                        Collections.emptyList(),false,Collections.emptyList(),Collections.emptyList(),
                         new Configuration());
         final JobGraph jobGraph = retrieveJobGraph(retrieverUnderTest, new Configuration());
 
@@ -459,6 +475,7 @@ class DefaultPackagedProgramRetrieverTest {
                         testJobEntryClassClasspathProvider.getJobJar(),
                         null,
                         ClasspathProviderExtension.parametersForTestJob("suffix"),
+                        Collections.emptyList(),false,Collections.emptyList(),Collections.emptyList(),
                         new Configuration());
         final JobGraph jobGraph = retrieveJobGraph(retrieverUnderTest, new Configuration());
 
@@ -489,6 +506,7 @@ class DefaultPackagedProgramRetrieverTest {
                         null,
                         singleEntryClassClasspathProvider.getJobClassName(),
                         new String[0],
+                        Collections.emptyList(),false,Collections.emptyList(),Collections.emptyList(),
                         configuration);
 
         assertThat(retriever.getPackagedProgram().getUserCodeClassLoader())
@@ -514,6 +532,7 @@ class DefaultPackagedProgramRetrieverTest {
                         null,
                         singleEntryClassClasspathProvider.getJobClassName(),
                         new String[0],
+                        Collections.emptyList(),false,Collections.emptyList(),Collections.emptyList(),
                         configuration);
 
         assertThat(retriever.getPackagedProgram().getUserCodeClassLoader())

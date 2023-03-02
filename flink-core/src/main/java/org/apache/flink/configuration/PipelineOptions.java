@@ -309,4 +309,12 @@ public class PipelineOptions {
                                     + "while still using watermark alignment, set this parameter to true. "
                                     + "The default value is false. Note: This parameter may be "
                                     + "removed in future releases.");
+
+    public static final ConfigOption<String> JOB_TYPE =
+            key("pipeline.job-type")
+                    .stringType()
+                    .defaultValue("SQL")
+                    .withDescription(
+                            "The job-type to be executed. "
+                                    + "SQL: run sql-committer, JAR: run user custom jar.");
 }

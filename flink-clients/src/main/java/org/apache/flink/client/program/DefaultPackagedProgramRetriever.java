@@ -19,6 +19,7 @@
 package org.apache.flink.client.program;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.client.deployment.AddRemoveJarUtil;
 import org.apache.flink.client.deployment.application.EntryClassInformationProvider;
 import org.apache.flink.client.deployment.application.FromClasspathEntryClassInformationProvider;
 import org.apache.flink.client.deployment.application.FromJarEntryClassInformationProvider;
@@ -30,6 +31,10 @@ import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.function.FunctionUtils;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.File;
@@ -38,7 +43,9 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
@@ -50,6 +57,8 @@ import java.util.stream.Collectors;
  */
 public class DefaultPackagedProgramRetriever implements PackagedProgramRetriever {
 
+    private static final Logger LOG =
+            LoggerFactory.getLogger(DefaultPackagedProgramRetriever.class);
     private final EntryClassInformationProvider entryClassInformationProvider;
     private final String[] programArguments;
     private final List<URL> userClasspath;
@@ -72,9 +81,13 @@ public class DefaultPackagedProgramRetriever implements PackagedProgramRetriever
             @Nullable File userLibDir,
             @Nullable String jobClassName,
             String[] programArgs,
+            @Nonnull List<URL> externalJars,
+            @Nonnull Boolean connectorJarLoadFirst,
+            @Nonnull List<String> addJarList,
+            @Nonnull List<String> removeJarList,
             Configuration configuration)
             throws FlinkException {
-        return create(userLibDir, null, jobClassName, programArgs, configuration);
+        return create(userLibDir, null, jobClassName, programArgs,externalJars,connectorJarLoadFirst,addJarList,removeJarList, configuration);
     }
 
     /**
@@ -97,16 +110,30 @@ public class DefaultPackagedProgramRetriever implements PackagedProgramRetriever
             @Nullable File jarFile,
             @Nullable String jobClassName,
             String[] programArgs,
+            @Nonnull List<URL> externalJars,
+            @Nonnull Boolean connectorJarLoadFirst,
+            @Nonnull List<String> addJarList,
+            @Nonnull List<String> removeJarList,
             Configuration configuration)
             throws FlinkException {
         List<URL> userClasspaths;
         try {
-            final List<URL> classpathsFromUserLibDir = getClasspathsFromUserLibDir(userLibDir);
+            List<URL> sortedUserClassPaths = new ArrayList<>();
+            if (connectorJarLoadFirst) {
+                LOG.info("add connector jars to userClassPaths first");
+                sortedUserClassPaths.addAll(getClasspathsFromUserLibDir(userLibDir,addJarList,removeJarList));
+                sortedUserClassPaths.addAll(externalJars);
+            } else {
+                LOG.info("add user-defined udf jars to userClassPaths first");
+                sortedUserClassPaths.addAll(externalJars);
+                sortedUserClassPaths.addAll(getClasspathsFromUserLibDir(userLibDir,addJarList,removeJarList));
+            }
+
             final List<URL> classpathsFromConfiguration =
                     getClasspathsFromConfiguration(configuration);
 
             final List<URL> classpaths = new ArrayList<>();
-            classpaths.addAll(classpathsFromUserLibDir);
+            classpaths.addAll(sortedUserClassPaths);
             classpaths.addAll(classpathsFromConfiguration);
 
             userClasspaths = Collections.unmodifiableList(classpaths);
@@ -216,7 +243,7 @@ public class DefaultPackagedProgramRetriever implements PackagedProgramRetriever
         }
     }
 
-    private static List<URL> getClasspathsFromUserLibDir(@Nullable File userLibDir)
+    private static List<URL> getClasspathsFromUserLibDir(@Nullable File userLibDir, List<String> addJarList, List<String> removeJarList)
             throws IOException {
         if (userLibDir == null) {
             return Collections.emptyList();
@@ -225,9 +252,11 @@ public class DefaultPackagedProgramRetriever implements PackagedProgramRetriever
         final Path workingDirectory = FileUtils.getCurrentWorkingDirectory();
         final List<URL> relativeJarURLs =
                 FileUtils.listFilesInDirectory(userLibDir.toPath(), FileUtils::isJarFile).stream()
+                        .filter(path -> !removeJarList.contains(path.toFile().getAbsolutePath()))
                         .map(path -> FileUtils.relativizePath(workingDirectory, path))
                         .map(FunctionUtils.uncheckedFunction(FileUtils::toURL))
                         .collect(Collectors.toList());
+        relativeJarURLs.addAll(AddRemoveJarUtil.parseAddJar(addJarList, workingDirectory));
         return Collections.unmodifiableList(relativeJarURLs);
     }
 

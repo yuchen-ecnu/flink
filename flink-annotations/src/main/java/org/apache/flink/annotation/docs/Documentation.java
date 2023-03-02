@@ -149,7 +149,7 @@ public final class Documentation {
     @Retention(RetentionPolicy.RUNTIME)
     @Internal
     public @interface SuffixOption {
-        String value();
+        String value() default "";
     }
 
     /**

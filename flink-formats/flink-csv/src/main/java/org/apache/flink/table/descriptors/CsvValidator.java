@@ -21,54 +21,58 @@ package org.apache.flink.table.descriptors;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.table.api.ValidationException;
 
-/**
- * Validator for {@link OldCsv}.
- *
- * @deprecated Use the RFC-compliant {@code Csv} format in the dedicated flink-formats/flink-csv
- *     module instead.
- */
-@Deprecated
+import java.util.Arrays;
+
+/** Validator for {@link Csv}. */
 @Internal
-public class OldCsvValidator extends FormatDescriptorValidator {
+public class CsvValidator extends FormatDescriptorValidator {
 
     public static final String FORMAT_TYPE_VALUE = "csv";
     public static final String FORMAT_FIELD_DELIMITER = "format.field-delimiter";
     public static final String FORMAT_LINE_DELIMITER = "format.line-delimiter";
+    public static final String FORMAT_DISABLE_QUOTE_CHARACTER = "format.disable-quote-character";
     public static final String FORMAT_QUOTE_CHARACTER = "format.quote-character";
-    public static final String FORMAT_COMMENT_PREFIX = "format.comment-prefix";
-    public static final String FORMAT_IGNORE_FIRST_LINE = "format.ignore-first-line";
+    public static final String FORMAT_ALLOW_COMMENTS = "format.allow-comments";
     public static final String FORMAT_IGNORE_PARSE_ERRORS = "format.ignore-parse-errors";
-    public static final String FORMAT_FIELDS = "format.fields";
-    public static final String FORMAT_WRITE_MODE = "format.write-mode";
-    public static final String FORMAT_NUM_FILES = "format.num-files";
+    public static final String FORMAT_ARRAY_ELEMENT_DELIMITER = "format.array-element-delimiter";
+    public static final String FORMAT_ESCAPE_CHARACTER = "format.escape-character";
+    public static final String FORMAT_NULL_LITERAL = "format.null-literal";
+    public static final String FORMAT_SCHEMA = "format.schema";
 
     @Override
     public void validate(DescriptorProperties properties) {
         super.validate(properties);
-        properties.validateValue(FORMAT_TYPE, FORMAT_TYPE_VALUE, false);
-        properties.validateString(FORMAT_FIELD_DELIMITER, true, 1);
-        properties.validateString(FORMAT_LINE_DELIMITER, true, 1);
+        properties.validateString(FORMAT_FIELD_DELIMITER, true, 1, 1);
+        properties.validateEnumValues(
+                FORMAT_LINE_DELIMITER, true, Arrays.asList("\r", "\n", "\r\n", ""));
+        properties.validateBoolean(FORMAT_DISABLE_QUOTE_CHARACTER, true);
         properties.validateString(FORMAT_QUOTE_CHARACTER, true, 1, 1);
-        properties.validateString(FORMAT_COMMENT_PREFIX, true, 1);
-        properties.validateBoolean(FORMAT_IGNORE_FIRST_LINE, true);
+        properties.validateBoolean(FORMAT_ALLOW_COMMENTS, true);
         properties.validateBoolean(FORMAT_IGNORE_PARSE_ERRORS, true);
+        properties.validateString(FORMAT_ARRAY_ELEMENT_DELIMITER, true, 1);
+        properties.validateString(FORMAT_ESCAPE_CHARACTER, true, 1, 1);
         properties.validateBoolean(FormatDescriptorValidator.FORMAT_DERIVE_SCHEMA, true);
-        properties.validateString(FORMAT_WRITE_MODE, true, 1);
-        properties.validateInt(FORMAT_NUM_FILES, true);
 
-        final boolean hasSchema = properties.hasPrefix(FORMAT_FIELDS);
+        final boolean hasSchema = properties.containsKey(FORMAT_SCHEMA);
         final boolean isDerived =
                 properties
                         .getOptionalBoolean(FormatDescriptorValidator.FORMAT_DERIVE_SCHEMA)
-                        .orElse(true); // derive schema by default
-
+                        .orElse(true);
         // if a schema is defined, no matter derive schema is set or not, will use the defined
         // schema
         if (hasSchema) {
-            properties.validateTableSchema(FORMAT_FIELDS, false);
+            properties.validateType(FORMAT_SCHEMA, false, true);
         } else if (!isDerived) {
             throw new ValidationException(
                     "A definition of a schema is required if derivation from the table's schema is disabled.");
+        }
+
+        final boolean hasQuoteCharacter = properties.containsKey(FORMAT_QUOTE_CHARACTER);
+        final boolean isDisabledQuoteCharacter =
+                properties.getOptionalBoolean(FORMAT_DISABLE_QUOTE_CHARACTER).orElse(false);
+        if (isDisabledQuoteCharacter && hasQuoteCharacter) {
+            throw new ValidationException(
+                    "Format cannot define a quote character and disabled quote character at the same time.");
         }
     }
 }

@@ -37,6 +37,8 @@ import org.apache.flink.runtime.webmonitor.handlers.JarRunHandler;
 import org.apache.flink.runtime.webmonitor.handlers.JarRunHeaders;
 import org.apache.flink.runtime.webmonitor.handlers.JarUploadHandler;
 import org.apache.flink.runtime.webmonitor.handlers.JarUploadHeaders;
+import org.apache.flink.runtime.webmonitor.handlers.RedJarRunHandler;
+import org.apache.flink.runtime.webmonitor.handlers.RedJarRunHeaders;
 import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
 import org.apache.flink.util.concurrent.ExecutorThreadFactory;
 import org.apache.flink.util.concurrent.SeparateThreadExecutor;
@@ -161,12 +163,22 @@ public class WebSubmissionExtension implements WebMonitorExtension {
                         configuration,
                         executor);
 
+        final RedJarRunHandler redJarRunHandler =
+                new RedJarRunHandler(
+                        leaderRetriever,
+                        timeout,
+                        responseHeaders,
+                        JarRunHeaders.getInstance(),
+                        jarDir,
+                        configuration,
+                        executor);
         webSubmissionHandlers.add(Tuple2.of(JarUploadHeaders.getInstance(), jarUploadHandler));
         webSubmissionHandlers.add(Tuple2.of(JarListHeaders.getInstance(), jarListHandler));
         webSubmissionHandlers.add(Tuple2.of(JarRunHeaders.getInstance(), jarRunHandler));
         webSubmissionHandlers.add(Tuple2.of(JarDeleteHeaders.getInstance(), jarDeleteHandler));
         webSubmissionHandlers.add(Tuple2.of(JarPlanGetHeaders.getInstance(), jarPlanHandler));
         webSubmissionHandlers.add(Tuple2.of(JarPlanPostHeaders.getInstance(), postJarPlanHandler));
+        webSubmissionHandlers.add(Tuple2.of(RedJarRunHeaders.getInstance(), redJarRunHandler));
     }
 
     @Override

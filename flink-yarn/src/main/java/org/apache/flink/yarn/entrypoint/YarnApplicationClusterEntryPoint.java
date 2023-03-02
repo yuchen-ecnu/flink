@@ -44,6 +44,7 @@ import javax.annotation.Nullable;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -139,11 +140,13 @@ public final class YarnApplicationClusterEntryPoint extends ApplicationClusterEn
                 || PackagedProgramUtils.isPython(programArguments))) {
             final File userApplicationJar = getUserApplicationJar(userLibDir, configuration);
             return DefaultPackagedProgramRetriever.create(
-                    userLibDir, userApplicationJar, jobClassName, programArguments, configuration);
+                    userLibDir, userApplicationJar, jobClassName, programArguments,
+                    Collections.emptyList(),false,Collections.emptyList(),Collections.emptyList(), configuration);
         }
 
         return DefaultPackagedProgramRetriever.create(
-                userLibDir, jobClassName, programArguments, configuration);
+                userLibDir, jobClassName, programArguments,
+                Collections.emptyList(),false,Collections.emptyList(),Collections.emptyList(), configuration);
     }
 
     private static File getUserApplicationJar(

@@ -37,6 +37,7 @@ import org.apache.flink.runtime.util.SignalHandler;
 import org.apache.flink.util.FlinkException;
 
 import java.io.File;
+import java.util.Collections;
 
 /** An {@link ApplicationClusterEntryPoint} which is started with a job in a predefined location. */
 @Internal
@@ -107,6 +108,7 @@ public final class StandaloneApplicationClusterEntryPoint extends ApplicationClu
                         userLibDir,
                         clusterConfiguration.getJobClassName(),
                         clusterConfiguration.getArgs(),
+                        Collections.emptyList(),false,Collections.emptyList(),Collections.emptyList(),
                         flinkConfiguration);
         return programRetriever.getPackagedProgram();
     }

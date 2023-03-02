@@ -37,6 +37,7 @@ import java.io.Serializable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 /**
  * A table environment is the base class, entry point, and central context for creating Table and
@@ -120,6 +121,10 @@ public interface TableEnvironment {
      */
     static TableEnvironment create(Configuration configuration) {
         return TableEnvironmentImpl.create(configuration);
+    }
+
+    static TableEnvironment create(Supplier<? extends TableEnvironmentImpl> supplier) {
+        return supplier.get();
     }
 
     /**

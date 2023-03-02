@@ -18,36 +18,40 @@
 
 package org.apache.flink.runtime.webmonitor.handlers.utils;
 
+import org.apache.commons.cli.ParseException;
+
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.client.program.PackagedProgram;
 import org.apache.flink.client.program.PackagedProgramUtils;
 import org.apache.flink.client.program.ProgramInvocationException;
-import org.apache.flink.configuration.ConfigUtils;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.configuration.CoreOptions;
-import org.apache.flink.configuration.PipelineOptions;
-import org.apache.flink.configuration.PipelineOptionsInternal;
+import org.apache.flink.kubernetes.cli.CliParser;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.rest.handler.HandlerRequest;
 import org.apache.flink.runtime.rest.handler.RestHandlerException;
 import org.apache.flink.runtime.rest.messages.MessageParameters;
-import org.apache.flink.runtime.webmonitor.handlers.EntryClassQueryParameter;
-import org.apache.flink.runtime.webmonitor.handlers.JarIdPathParameter;
-import org.apache.flink.runtime.webmonitor.handlers.JarRequestBody;
-import org.apache.flink.runtime.webmonitor.handlers.ParallelismQueryParameter;
-import org.apache.flink.runtime.webmonitor.handlers.ProgramArgQueryParameter;
-import org.apache.flink.runtime.webmonitor.handlers.ProgramArgsQueryParameter;
+import org.apache.flink.runtime.webmonitor.handlers.*;
 
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JsonParser;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.type.TypeReference;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.HttpResponseStatus;
+
+import org.apache.flink.streaming.api.graph.StreamGraph;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import red.data.platform.flink.conf.FlinkJobConf;
+import red.data.platform.flink.desc.FlinkJobDesc;
+import red.data.platform.flink.desc.JarInfoDesc;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.file.Files;
@@ -63,7 +67,6 @@ import java.util.regex.Pattern;
 import static org.apache.flink.runtime.rest.handler.util.HandlerRequestUtils.fromRequestBodyOrQueryParameter;
 import static org.apache.flink.runtime.rest.handler.util.HandlerRequestUtils.getQueryParameter;
 import static org.apache.flink.shaded.guava30.com.google.common.base.Strings.emptyToNull;
-import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
  * Utils for jar handlers.
@@ -71,19 +74,19 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * @see org.apache.flink.runtime.webmonitor.handlers.JarRunHandler
  * @see org.apache.flink.runtime.webmonitor.handlers.JarPlanHandler
  */
-public class JarHandlerUtils {
+public class RedJarHandlerUtils {
+    public static final Logger LOG = LoggerFactory.getLogger(RedJarHandlerUtils.class);
+    public static final String USER_JAR_DIR = "/opt/flink/connector-lib";
 
     /** Standard jar handler parameters parsed from request. */
-    public static class JarHandlerContext {
-        public static final Logger LOG = LoggerFactory.getLogger(JarHandlerUtils.class);
-        public static final String USER_JAR_DIR = "/opt/flink/connector-lib";
+    public static class RedJarHandlerContext {
         private final Path jarFile;
         private final String entryClass;
         private final List<String> programArgs;
         private final int parallelism;
         private final JobID jobId;
 
-        private JarHandlerContext(
+        private RedJarHandlerContext(
                 Path jarFile,
                 String entryClass,
                 List<String> programArgs,
@@ -96,14 +99,12 @@ public class JarHandlerUtils {
             this.jobId = jobId;
         }
 
-        public static <R extends JarRequestBody> JarHandlerContext fromRequest(
+        public static <R extends JarRequestBody> RedJarHandlerContext fromRequest(
                 @Nonnull final HandlerRequest<R> request,
                 @Nonnull final Path jarDir,
                 @Nonnull final Logger log)
                 throws RestHandlerException {
             final JarRequestBody requestBody = request.getRequestBody();
-
-            Configuration configuration = requestBody.getFlinkConfiguration();
 
             final String pathParameter = request.getPathParameter(JarIdPathParameter.class);
             Path jarFile = jarDir.resolve(pathParameter);
@@ -118,13 +119,13 @@ public class JarHandlerUtils {
                             null,
                             log);
 
-            List<String> programArgs = JarHandlerUtils.getProgramArgs(request, log);
+            List<String> programArgs = RedJarHandlerUtils.getProgramArgs(request, log);
 
             int parallelism =
                     fromRequestBodyOrQueryParameter(
                             requestBody.getParallelism(),
                             () -> getQueryParameter(request, ParallelismQueryParameter.class),
-                            configuration.get(CoreOptions.DEFAULT_PARALLELISM),
+                            ExecutionConfig.PARALLELISM_DEFAULT,
                             log);
 
             JobID jobId =
@@ -134,81 +135,123 @@ public class JarHandlerUtils {
                             null, // Delegate default job ID to actual JobGraph generation
                             log);
 
-            return new JarHandlerContext(jarFile, entryClass, programArgs, parallelism, jobId);
+            return new RedJarHandlerContext(jarFile, entryClass, programArgs, parallelism, jobId);
         }
 
-        public void applyToConfiguration(
-                final Configuration configuration,
-                final HandlerRequest<? extends JarRequestBody> request) {
-            checkNotNull(configuration);
-            checkNotNull(request);
-
-            Configuration restFlinkConfig = request.getRequestBody().getFlinkConfiguration();
-            configuration.addAll(restFlinkConfig);
-
-            if (jobId != null) {
-                configuration.set(
-                        PipelineOptionsInternal.PIPELINE_FIXED_JOB_ID, jobId.toHexString());
-            }
-            configuration.set(CoreOptions.DEFAULT_PARALLELISM, parallelism);
-
-            final PackagedProgram program = toPackagedProgram(configuration);
-            ConfigUtils.encodeCollectionToConfig(
-                    configuration,
-                    PipelineOptions.JARS,
-                    program.getJobJarAndDependencies(),
-                    URL::toString);
-            ConfigUtils.encodeCollectionToConfig(
-                    configuration,
-                    PipelineOptions.CLASSPATHS,
-                    program.getClasspaths(),
-                    URL::toString);
-        }
-
-        public JobGraph toJobGraph(
-                PackagedProgram packagedProgram,
-                Configuration configuration,
-                boolean suppressOutput) {
+        public JobGraph toJobGraph(Configuration configuration, boolean suppressOutput) {
+            final PackagedProgram packagedProgram = generatePackagedProgram(configuration, false);
             try {
                 return PackagedProgramUtils.createJobGraph(
                         packagedProgram, configuration, parallelism, jobId, suppressOutput);
-            } catch (final ProgramInvocationException e) {
+            } catch (ProgramInvocationException e) {
                 throw new CompletionException(e);
             }
         }
 
-        public PackagedProgram toPackagedProgram(Configuration configuration) {
-            checkNotNull(configuration);
-
+        private PackagedProgram generatePackagedProgram(
+                Configuration configuration, boolean ifAddOrRemoveJar) {
             if (!Files.exists(jarFile)) {
                 throw new CompletionException(
                         new RestHandlerException(
                                 String.format("Jar file %s does not exist", jarFile),
                                 HttpResponseStatus.BAD_REQUEST));
             }
-
             try {
+                // 获取url
+                String[] args = programArgs.toArray(new String[0]);
+                CliParser cliParser = new CliParser(args);
+                String jobDescStr = cliParser.getString(FlinkJobConf.ConfVars.PARAMS.varname);
+                ObjectMapper mapper = new ObjectMapper();
+                mapper.configure(JsonParser.Feature.ALLOW_UNQUOTED_CONTROL_CHARS, true);
+                FlinkJobDesc jobDesc =
+                        mapper.readValue(jobDescStr, new TypeReference<FlinkJobDesc>() {});
+                LOG.info("get input sql: {} ", jobDesc.getSqls());
                 List<URL> classpaths = new ArrayList<>();
+                List<JarInfoDesc> jarInfoDescs = jobDesc.getJarList();
+                if (jarInfoDescs != null) {
+                    for (JarInfoDesc jarInfoDesc : jarInfoDescs) {
+                        classpaths.add(new URL(jarInfoDesc.getUrl()));
+                    }
+                }
+
                 File dir = new File(USER_JAR_DIR);
-                LOG.info("begin check jars in connector-lib directory");
                 if (dir.exists()) {
                     File[] files = dir.listFiles();
-                    LOG.info("there are {} jar files under lib2 directory", files.length);
                     Arrays.stream(files)
                             .filter(a -> a.isFile() && a.getName().endsWith(".jar"))
                             .forEach(
                                     a -> {
                                         try {
                                             classpaths.add(a.getAbsoluteFile().toURI().toURL());
-                                            LOG.info(
-                                                    "add user connector or format jar: {}",
-                                                    a.getAbsoluteFile().toURI().toURL());
                                         } catch (MalformedURLException e) {
                                             LOG.warn(e.getMessage(), e);
                                         }
                                     });
                 } else {
-                    LOG.warn("connector-lib directory does not exist!");
+                    LOG.warn("lib2 directory does not exist!");
+                }
+
+                // process "add jar" , "remove jar"
+                if (ifAddOrRemoveJar && jobDesc.getLocalJarInfoDesc() != null) {
+                    if (jobDesc.getLocalJarInfoDesc().getAddJarList() != null) {
+                        jobDesc.getLocalJarInfoDesc()
+                                .getAddJarList()
+                                .forEach(
+                                        jar -> {
+                                            try {
+                                                if (jar.startsWith("http")) {
+                                                    classpaths.add(new URL(jar));
+                                                    return;
+                                                }
+                                                File localJar = new File(jar);
+                                                if (localJar.isDirectory()) {
+                                                    File[] innerFiles = localJar.listFiles();
+                                                    for (File f : innerFiles) {
+                                                        classpaths.add(f.toURI().toURL());
+                                                    }
+                                                } else {
+                                                    classpaths.add(new File(jar).toURI().toURL());
+                                                }
+                                            } catch (MalformedURLException e) {
+                                                LOG.error(
+                                                        "add jar"
+                                                                + jar
+                                                                + " failed"
+                                                                + e.getMessage(),
+                                                        e);
+                                            }
+                                        });
+                    }
+                    if (jobDesc.getLocalJarInfoDesc().getRemoveJarList() != null) {
+                        jobDesc.getLocalJarInfoDesc()
+                                .getRemoveJarList()
+                                .forEach(
+                                        jar -> {
+                                            try {
+                                                if (jar.startsWith("http")) {
+                                                    classpaths.remove(new URL(jar));
+                                                    return;
+                                                }
+                                                File localJar = new File(jar);
+                                                if (localJar.isDirectory()) {
+                                                    File[] innerFiles = localJar.listFiles();
+                                                    for (File f : innerFiles) {
+                                                        classpaths.remove(f.toURI().toURL());
+                                                    }
+                                                } else {
+                                                    classpaths.remove(
+                                                            new File(jar).toURI().toURL());
+                                                }
+                                            } catch (MalformedURLException e) {
+                                                LOG.error(
+                                                        "remove jar"
+                                                                + jar
+                                                                + " failed"
+                                                                + e.getMessage(),
+                                                        e);
+                                            }
+                                        });
+                    }
                 }
                 return PackagedProgram.newBuilder()
                         .setJarFile(jarFile.toFile())
@@ -217,34 +260,31 @@ public class JarHandlerUtils {
                         .setArguments(programArgs.toArray(new String[0]))
                         .setUserClassPaths(classpaths)
                         .build();
-            } catch (final ProgramInvocationException e) {
+            } catch (final ProgramInvocationException | ParseException | IOException e) {
                 throw new CompletionException(e);
             }
         }
 
-        @VisibleForTesting
-        String getEntryClass() {
-            return entryClass;
-        }
+        public String toPipeline(Configuration configuration) {
+            try {
+                final PackagedProgram packagedProgram =
+                        generatePackagedProgram(configuration, true);
 
-        @VisibleForTesting
-        List<String> getProgramArgs() {
-            return programArgs;
-        }
-
-        @VisibleForTesting
-        int getParallelism() {
-            return parallelism;
-        }
-
-        @VisibleForTesting
-        JobID getJobId() {
-            return jobId;
+                String result =
+                        ((StreamGraph)
+                                        PackagedProgramUtils.getPipelineFromProgram(
+                                                packagedProgram, configuration, parallelism, true))
+                                .getStreamingPlanAsJSON();
+                LOG.info("return stream graph json result:{}", result);
+                return result;
+            } catch (final ProgramInvocationException e) {
+                throw new CompletionException(e);
+            }
         }
     }
 
     /** Parse program arguments in jar run or plan request. */
-    private static <R extends JarRequestBody, M extends MessageParameters>
+    private static <R extends JarRequestBody>
             List<String> getProgramArgs(HandlerRequest<R> request, Logger log)
                     throws RestHandlerException {
         JarRequestBody requestBody = request.getRequestBody();
