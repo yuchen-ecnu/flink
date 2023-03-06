@@ -251,4 +251,13 @@ public class RestOptions {
                     .defaultValue(Duration.ofMinutes(5))
                     .withDescription(
                             "Maximum duration that the result of an async operation is stored. Once elapsed the result of the operation can no longer be retrieved.");
+
+    @Documentation.Section(Documentation.Sections.EXPERT_REST)
+    public static final ConfigOption<String> SCHEMA_SERVER_URL =
+            ConfigOptions.key("rest.schema-server.url")
+                    .stringType()
+                    .defaultValue(
+                            "http://internal-data-schema-v2-app-805044804.cn-north-1.elb.amazonaws.com.cn:8080/get/")
+                    .withDescription(
+                            "Specify the address of the schema server, by default the domestic address is used.");
 }

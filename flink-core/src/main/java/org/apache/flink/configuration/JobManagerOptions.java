@@ -693,6 +693,17 @@ public class JobManagerOptions {
                                                             code(UNFINISHED_PRODUCERS.name())))
                                             .build());
 
+
+    /**
+     * config parameter in seconds, how often the jobmanager will try to request latest red-pb schema
+     * from the schema server.
+     */
+    public static final ConfigOption<Integer> RED_PB_UPDATE_INTERVAL_SECONDS =
+            key("jobmanager.red-pb.interval.seconds")
+                    .intType()
+                    .defaultValue(21600)
+                    .withDescription(
+                            "how often the jobmanager will try to request latest red-pb schema in seconds.");
     // ---------------------------------------------------------------------------------------------
 
     private JobManagerOptions() {

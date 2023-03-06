@@ -30,6 +30,7 @@ import org.apache.flink.runtime.leaderelection.LeaderElectionService;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
 import org.apache.flink.runtime.rest.RestServerEndpoint;
 import org.apache.flink.runtime.rest.handler.AbstractRestHandler;
+import org.apache.flink.runtime.rest.handler.RedPbUpdateHandler;
 import org.apache.flink.runtime.rest.handler.RestHandlerConfiguration;
 import org.apache.flink.runtime.rest.handler.RestHandlerSpecification;
 import org.apache.flink.runtime.rest.handler.cluster.ClusterConfigHandler;
@@ -114,6 +115,7 @@ import org.apache.flink.runtime.rest.messages.JobVertexBackPressureHeaders;
 import org.apache.flink.runtime.rest.messages.JobVertexDetailsHeaders;
 import org.apache.flink.runtime.rest.messages.JobVertexTaskManagersHeaders;
 import org.apache.flink.runtime.rest.messages.JobsOverviewHeaders;
+import org.apache.flink.runtime.rest.messages.RedPbUpdateHeaders;
 import org.apache.flink.runtime.rest.messages.SubtasksAllAccumulatorsHeaders;
 import org.apache.flink.runtime.rest.messages.SubtasksTimesHeaders;
 import org.apache.flink.runtime.rest.messages.TaskManagerLogUrlHeaders;
@@ -999,6 +1001,17 @@ public class WebMonitorEndpoint<T extends RestfulGateway> extends RestServerEndp
                         responseHeaders,
                         TaskManagerThreadDumpHeaders.getInstance(),
                         resourceManagerRetriever);
+
+
+        // red handlers
+        final RedPbUpdateHandler redPbUpdateHandler = new RedPbUpdateHandler(
+                leaderRetriever,
+                timeout,
+                responseHeaders,
+                RedPbUpdateHeaders.getInstance(),
+                clusterConfiguration
+        );
+        handlers.add(Tuple2.of(RedPbUpdateHeaders.getInstance(), redPbUpdateHandler));
 
         handlers.add(Tuple2.of(TaskManagerLogFileHeaders.getInstance(), taskManagerLogFileHandler));
         handlers.add(
