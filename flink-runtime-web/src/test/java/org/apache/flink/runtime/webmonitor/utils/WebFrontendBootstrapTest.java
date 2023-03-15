@@ -86,12 +86,12 @@ class WebFrontendBootstrapTest {
         try {
             Tuple2<Integer, String> index =
                     HttpUtils.getFromHTTP("http://localhost:" + port + "/index.html");
-            assertThat(200).isEqualTo(index.f0.intValue());
+            assertThat(index.f0.intValue()).isEqualTo(200);
             assertThat(index.f1.contains("Apache Flink Web Dashboard")).isTrue();
 
             Tuple2<Integer, String> index2 =
                     HttpUtils.getFromHTTP("http://localhost:" + port + "/nonExisting");
-            assertThat(200).isEqualTo(index2.f0.intValue());
+            assertThat(index2.f0.intValue()).isEqualTo(200);
             assertThat(index2).isEqualTo(index);
         } finally {
             webUI.shutdown();
