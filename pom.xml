@@ -2236,13 +2236,13 @@ under the License.
 	<distributionManagement>
 		<snapshotRepository>
 			<id>snapshots</id>
-			<name>nexus snapshot repository</name>
-			<url>http://mvn.devops.xiaohongshu.com/repository/maven-snapshots/</url>
+			<name>maven snapshot repository</name>
+			<url>https://artifactory.devops.xiaohongshu.com/artifactory/maven-snapshots/</url>
 		</snapshotRepository>
 		<repository>
 			<id>releases</id>
-			<name>nexus repository</name>
-			<url>http://mvn.devops.xiaohongshu.com/repository/maven-releases/</url>
+			<name>maven releases repository</name>
+			<url>https://artifactory.devops.xiaohongshu.com/artifactory/maven-releases/</url>
 		</repository>
 	</distributionManagement>
 </project>
