@@ -45,6 +45,7 @@ import org.apache.flink.runtime.resourcemanager.TaskExecutorRegistration;
 import org.apache.flink.runtime.resourcemanager.TaskManagerInfoWithSlots;
 import org.apache.flink.runtime.resourcemanager.exceptions.UnknownTaskExecutorException;
 import org.apache.flink.runtime.rest.messages.LogInfo;
+import org.apache.flink.runtime.rest.messages.ProfilingInfo;
 import org.apache.flink.runtime.rest.messages.ThreadDumpInfo;
 import org.apache.flink.runtime.rest.messages.taskmanager.TaskManagerInfo;
 import org.apache.flink.runtime.shuffle.ShuffleDescriptor;
@@ -95,6 +96,10 @@ public class TestingResourceManagerGateway implements ResourceManagerGateway {
     private volatile Function<Tuple2<ResourceID, String>, CompletableFuture<TransientBlobKey>>
             requestTaskManagerFileUploadByNameFunction;
 
+    private volatile Function<
+                    Tuple3<ResourceID, String, FileType>, CompletableFuture<TransientBlobKey>>
+            requestTaskManagerFileUploadByNameAndTypeFunction;
+
     private volatile Consumer<Tuple2<ResourceID, Throwable>> disconnectTaskExecutorConsumer;
 
     private volatile Function<
@@ -117,6 +122,12 @@ public class TestingResourceManagerGateway implements ResourceManagerGateway {
 
     private volatile Function<ResourceID, CompletableFuture<ThreadDumpInfo>>
             requestThreadDumpFunction;
+
+    private volatile Function<ResourceID, CompletableFuture<ProfilingInfo>>
+            requestProfilingFunction;
+
+    private volatile Function<ResourceID, CompletableFuture<Collection<ProfilingInfo>>>
+            requestProfilingListFunction;
 
     private volatile BiFunction<JobMasterId, ResourceRequirements, CompletableFuture<Acknowledge>>
             declareRequiredResourcesFunction =
@@ -187,6 +198,13 @@ public class TestingResourceManagerGateway implements ResourceManagerGateway {
                 requestTaskManagerFileUploadByNameFunction;
     }
 
+    public void setRequestTaskManagerFileUploadByNameAndTypeFunction(
+            Function<Tuple3<ResourceID, String, FileType>, CompletableFuture<TransientBlobKey>>
+                    requestTaskManagerFileUploadByNameAndTypeFunction) {
+        this.requestTaskManagerFileUploadByNameAndTypeFunction =
+                requestTaskManagerFileUploadByNameAndTypeFunction;
+    }
+
     public void setRequestTaskManagerLogListFunction(
             Function<ResourceID, CompletableFuture<Collection<LogInfo>>>
                     requestTaskManagerLogListFunction) {
@@ -235,6 +253,17 @@ public class TestingResourceManagerGateway implements ResourceManagerGateway {
     public void setRequestThreadDumpFunction(
             Function<ResourceID, CompletableFuture<ThreadDumpInfo>> requestThreadDumpFunction) {
         this.requestThreadDumpFunction = requestThreadDumpFunction;
+    }
+
+    public void setRequestProfilingFunction(
+            Function<ResourceID, CompletableFuture<ProfilingInfo>> requestProfilingFunction) {
+        this.requestProfilingFunction = requestProfilingFunction;
+    }
+
+    public void setRequestProfilingListFunction(
+            Function<ResourceID, CompletableFuture<Collection<ProfilingInfo>>>
+                    requestProfilingListFunction) {
+        this.requestProfilingListFunction = requestProfilingListFunction;
     }
 
     public void setDeclareRequiredResourcesFunction(
@@ -442,6 +471,19 @@ public class TestingResourceManagerGateway implements ResourceManagerGateway {
     }
 
     @Override
+    public CompletableFuture<TransientBlobKey> requestTaskManagerFileUploadByNameAndType(
+            ResourceID taskManagerId, String fileName, FileType fileType, Time timeout) {
+        final Function<Tuple3<ResourceID, String, FileType>, CompletableFuture<TransientBlobKey>>
+                function = requestTaskManagerFileUploadByNameAndTypeFunction;
+
+        if (function != null) {
+            return function.apply(Tuple3.of(taskManagerId, fileName, fileType));
+        } else {
+            return CompletableFuture.completedFuture(new TransientBlobKey());
+        }
+    }
+
+    @Override
     public CompletableFuture<Collection<LogInfo>> requestTaskManagerLogList(
             ResourceID taskManagerId, Time timeout) {
         final Function<ResourceID, CompletableFuture<Collection<LogInfo>>> function =
@@ -473,6 +515,37 @@ public class TestingResourceManagerGateway implements ResourceManagerGateway {
             ResourceID taskManagerId, Time timeout) {
         final Function<ResourceID, CompletableFuture<TaskExecutorThreadInfoGateway>> function =
                 this.requestTaskExecutorThreadInfoGateway;
+
+        if (function != null) {
+            return function.apply(taskManagerId);
+        } else {
+            return FutureUtils.completedExceptionally(
+                    new UnknownTaskExecutorException(taskManagerId));
+        }
+    }
+
+    @Override
+    public CompletableFuture<Collection<ProfilingInfo>> requestTaskManagerProfilingList(
+            ResourceID taskManagerId, Time timeout) {
+        final Function<ResourceID, CompletableFuture<Collection<ProfilingInfo>>> function =
+                this.requestProfilingListFunction;
+
+        if (function != null) {
+            return function.apply(taskManagerId);
+        } else {
+            return FutureUtils.completedExceptionally(
+                    new UnknownTaskExecutorException(taskManagerId));
+        }
+    }
+
+    @Override
+    public CompletableFuture<ProfilingInfo> requestProfiling(
+            ResourceID taskManagerId,
+            int duration,
+            ProfilingInfo.ProfilingMode mode,
+            Time timeout) {
+        final Function<ResourceID, CompletableFuture<ProfilingInfo>> function =
+                this.requestProfilingFunction;
 
         if (function != null) {
             return function.apply(taskManagerId);

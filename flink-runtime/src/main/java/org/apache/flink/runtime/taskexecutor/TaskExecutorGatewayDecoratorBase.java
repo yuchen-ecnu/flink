@@ -39,6 +39,7 @@ import org.apache.flink.runtime.messages.TaskThreadInfoResponse;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.rest.messages.LogInfo;
+import org.apache.flink.runtime.rest.messages.ProfilingInfo;
 import org.apache.flink.runtime.rest.messages.ThreadDumpInfo;
 import org.apache.flink.runtime.webmonitor.threadinfo.ThreadInfoSamplesRequest;
 import org.apache.flink.types.SerializableOptional;
@@ -206,6 +207,12 @@ public class TaskExecutorGatewayDecoratorBase implements TaskExecutorGateway {
     }
 
     @Override
+    public CompletableFuture<TransientBlobKey> requestFileUploadByNameAndType(
+            String fileName, FileType fileType, Time timeout) {
+        return originalGateway.requestFileUploadByNameAndType(fileName, fileType, timeout);
+    }
+
+    @Override
     public CompletableFuture<SerializableOptional<String>> requestMetricQueryServiceAddress(
             Time timeout) {
         return originalGateway.requestMetricQueryServiceAddress(timeout);
@@ -236,6 +243,17 @@ public class TaskExecutorGatewayDecoratorBase implements TaskExecutorGateway {
     public CompletableFuture<Acknowledge> updateDelegationTokens(
             ResourceManagerId resourceManagerId, byte[] tokens) {
         return originalGateway.updateDelegationTokens(resourceManagerId, tokens);
+    }
+
+    @Override
+    public CompletableFuture<ProfilingInfo> requestProfiling(
+            int duration, ProfilingInfo.ProfilingMode mode, Time timeout) {
+        return originalGateway.requestProfiling(duration, mode, timeout);
+    }
+
+    @Override
+    public CompletableFuture<Collection<ProfilingInfo>> requestProfilingList(Time timeout) {
+        return originalGateway.requestProfilingList(timeout);
     }
 
     @Override

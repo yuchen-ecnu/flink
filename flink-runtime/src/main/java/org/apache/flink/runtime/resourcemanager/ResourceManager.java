@@ -61,6 +61,7 @@ import org.apache.flink.runtime.resourcemanager.slotmanager.ResourceAllocator;
 import org.apache.flink.runtime.resourcemanager.slotmanager.ResourceEventListener;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
 import org.apache.flink.runtime.rest.messages.LogInfo;
+import org.apache.flink.runtime.rest.messages.ProfilingInfo;
 import org.apache.flink.runtime.rest.messages.ThreadDumpInfo;
 import org.apache.flink.runtime.rest.messages.taskmanager.TaskManagerInfo;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
@@ -811,22 +812,33 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
     @Override
     public CompletableFuture<TransientBlobKey> requestTaskManagerFileUploadByName(
             ResourceID taskManagerId, String fileName, Time timeout) {
+        return requestTaskManagerFileUploadByNameAndType(
+                taskManagerId, fileName, FileType.LOG, timeout);
+    }
+
+    @Override
+    public CompletableFuture<TransientBlobKey> requestTaskManagerFileUploadByNameAndType(
+            ResourceID taskManagerId, String fileName, FileType fileType, Time timeout) {
         log.debug(
-                "Request upload of file {} from TaskExecutor {}.",
+                "Request upload of file {} (type: {}) from TaskExecutor {}.",
                 fileName,
+                fileType,
                 taskManagerId.getStringWithMetadata());
 
         final WorkerRegistration<WorkerType> taskExecutor = taskExecutors.get(taskManagerId);
 
         if (taskExecutor == null) {
             log.debug(
-                    "Request upload of file {} from unregistered TaskExecutor {}.",
+                    "Request upload of file {} (type: {}) from unregistered TaskExecutor {}.",
                     fileName,
+                    fileType,
                     taskManagerId.getStringWithMetadata());
             return FutureUtils.completedExceptionally(
                     new UnknownTaskExecutorException(taskManagerId));
         } else {
-            return taskExecutor.getTaskExecutorGateway().requestFileUploadByName(fileName, timeout);
+            return taskExecutor
+                    .getTaskExecutorGateway()
+                    .requestFileUploadByNameAndType(fileName, fileType, timeout);
         }
     }
 
@@ -884,6 +896,40 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
                     new UnknownTaskExecutorException(taskManagerId));
         } else {
             return taskExecutor.getTaskExecutorGateway().requestThreadDump(timeout);
+        }
+    }
+
+    @Override
+    public CompletableFuture<Collection<ProfilingInfo>> requestTaskManagerProfilingList(
+            ResourceID taskManagerId, Time timeout) {
+        final WorkerRegistration<WorkerType> taskExecutor = taskExecutors.get(taskManagerId);
+        if (taskExecutor == null) {
+            log.debug(
+                    "Requested profiling list from unregistered TaskExecutor {}.",
+                    taskManagerId.getStringWithMetadata());
+            return FutureUtils.completedExceptionally(
+                    new UnknownTaskExecutorException(taskManagerId));
+        } else {
+            return taskExecutor.getTaskExecutorGateway().requestProfilingList(timeout);
+        }
+    }
+
+    @Override
+    public CompletableFuture<ProfilingInfo> requestProfiling(
+            ResourceID taskManagerId,
+            int duration,
+            ProfilingInfo.ProfilingMode mode,
+            Time timeout) {
+        final WorkerRegistration<WorkerType> taskExecutor = taskExecutors.get(taskManagerId);
+
+        if (taskExecutor == null) {
+            log.debug(
+                    "Requested profiling from unregistered TaskExecutor {}.",
+                    taskManagerId.getStringWithMetadata());
+            return FutureUtils.completedExceptionally(
+                    new UnknownTaskExecutorException(taskManagerId));
+        } else {
+            return taskExecutor.getTaskExecutorGateway().requestProfiling(duration, mode, timeout);
         }
     }
 
