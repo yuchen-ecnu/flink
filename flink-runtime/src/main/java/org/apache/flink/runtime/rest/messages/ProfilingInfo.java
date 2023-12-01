@@ -32,7 +32,7 @@ public class ProfilingInfo implements ResponseBody, Serializable {
     public static final String FIELD_NAME_FINISHED_TIME = "finishedTime";
     public static final String FIELD_NAME_DURATION = "duration";
     public static final String FIELD_NAME_MESSAGE = "message";
-    public static final String FIELD_NAME_OUTPUT_PATH = "file";
+    public static final String FIELD_NAME_OUTPUT_FILE = "outputFile";
 
     @JsonProperty(FIELD_NAME_STATUS)
     private ProfilingStatus status;
@@ -52,7 +52,7 @@ public class ProfilingInfo implements ResponseBody, Serializable {
     @JsonProperty(FIELD_NAME_MESSAGE)
     private String message;
 
-    @JsonProperty(FIELD_NAME_OUTPUT_PATH)
+    @JsonProperty(FIELD_NAME_OUTPUT_FILE)
     private String outputFile;
 
     private ProfilingInfo() {}
@@ -85,6 +85,7 @@ public class ProfilingInfo implements ResponseBody, Serializable {
         this.status = ProfilingStatus.FINISHED;
         this.finishedTime = System.currentTimeMillis();
         this.outputFile = outputFile;
+        this.message = "Profiling Successful";
         return this;
     }
 
@@ -133,7 +134,7 @@ public class ProfilingInfo implements ResponseBody, Serializable {
             @JsonProperty(FIELD_NAME_FINISHED_TIME) long finishedTime,
             @JsonProperty(FIELD_NAME_DURATION) long duration,
             @JsonProperty(FIELD_NAME_MESSAGE) String message,
-            @JsonProperty(FIELD_NAME_OUTPUT_PATH) String outputPath) {
+            @JsonProperty(FIELD_NAME_OUTPUT_FILE) String outputPath) {
         return new ProfilingInfo(
                 status, mode, triggerTime, finishedTime, duration, message, outputPath);
     }

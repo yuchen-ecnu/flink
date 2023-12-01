@@ -42,7 +42,7 @@ import java.util.concurrent.CompletableFuture;
 public class JobManagerProfilingHandler
         extends AbstractRestHandler<
                 RestfulGateway, ProfilingRequestBody, ProfilingInfo, EmptyMessageParameters> {
-    private final int maxDuration;
+    private final long maxDurationInSeconds;
     private final ProfilingService profilingService;
 
     public JobManagerProfilingHandler(
@@ -53,11 +53,8 @@ public class JobManagerProfilingHandler
                     messageHeaders,
             final Configuration configuration) {
         super(leaderRetriever, timeout, responseHeaders, messageHeaders);
-        int configuredDurationLimit = configuration.getInteger(RestOptions.MAX_PROFILING_DURATION);
-        this.maxDuration =
-                configuredDurationLimit > 0
-                        ? configuredDurationLimit
-                        : RestOptions.MAX_PROFILING_DURATION.defaultValue();
+        this.maxDurationInSeconds =
+                configuration.get(RestOptions.MAX_PROFILING_DURATION).getSeconds();
         this.profilingService = ProfilingService.getInstance(configuration);
     }
 
@@ -67,11 +64,12 @@ public class JobManagerProfilingHandler
             throws RestHandlerException {
         ProfilingRequestBody profilingRequest = request.getRequestBody();
         int duration = profilingRequest.getDuration();
-        if (duration <= 0 || duration > maxDuration) {
+        if (duration <= 0 || duration > maxDurationInSeconds) {
             return FutureUtils.completedExceptionally(
                     new IllegalArgumentException(
                             String.format(
-                                    "`duration` must be set between (0s, %ds].", maxDuration)));
+                                    "`duration` must be set between (0s, %ds].",
+                                    maxDurationInSeconds)));
         }
         return profilingService.requestProfiling(
                 "JobManager", duration, profilingRequest.getMode());

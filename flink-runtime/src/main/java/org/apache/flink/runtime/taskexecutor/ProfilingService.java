@@ -127,7 +127,7 @@ public class ProfilingService implements Closeable {
         Preconditions.checkState(!CollectionUtil.isNullOrEmpty(profilingList));
         ProfilingInfo info = profilingList.getFirst();
         try {
-            String fileName = formatOutputFileName(resourceID);
+            String fileName = formatOutputFileName(resourceID, info);
             String outputPath = new File(profilingResultDir, fileName).getPath();
             String response = profiler.execute(ProfilerConstants.COMMAND_STOP.msg + outputPath);
             if (!StringUtils.isNullOrWhitespaceOnly(response)
@@ -157,8 +157,9 @@ public class ProfilingService implements Closeable {
         }
     }
 
-    private String formatOutputFileName(String resourceID) {
-        return String.format("%s_%s.html", resourceID, sdf.format(new Date()));
+    private String formatOutputFileName(String resourceID, ProfilingInfo info) {
+        return String.format(
+                "%s_%s_%s.html", resourceID, info.getProfilingMode(), sdf.format(new Date()));
     }
 
     @Override

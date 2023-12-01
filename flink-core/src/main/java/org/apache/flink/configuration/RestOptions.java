@@ -316,16 +316,17 @@ public class RestOptions {
 
     /** Maximum profiling duration for profiling function. */
     @Documentation.Section(Documentation.Sections.EXPERT_REST)
-    public static final ConfigOption<Integer> MAX_PROFILING_DURATION =
+    public static final ConfigOption<Duration> MAX_PROFILING_DURATION =
             key("rest.profiling.duration-max")
-                    .intType()
-                    .defaultValue(300)
+                    .durationType()
+                    .defaultValue(Duration.ofSeconds(300))
                     .withDescription(
                             "Maximum profiling duration for each profiling request. "
                                     + "Any profiling request's duration exceeding this value will not be accepted.");
 
     /** Directory for storing the profiling results. */
     @Documentation.Section(Documentation.Sections.EXPERT_REST)
+    @Documentation.OverrideDefault("System.getProperty(\"java.io.tmpdir\")")
     public static final ConfigOption<String> PROFILING_RESULT_DIR =
             key("rest.profiling.dir")
                     .stringType()

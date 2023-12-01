@@ -26,6 +26,6 @@ export interface ProfilingDetail {
   finishedTime: number;
   duration: number;
   message: string;
-  file: string;
+  outputFile: string;
   mode: string;
 }
