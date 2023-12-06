@@ -42,7 +42,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Tests for {@link TableEnvironment} that require a planner. */
 class EnvironmentTest {
@@ -63,7 +62,7 @@ class EnvironmentTest {
                                         ExecutionCheckpointingOptions.CHECKPOINTING_INTERVAL,
                                         Duration.ofSeconds(30)));
 
-        tEnv.createTemporaryView("test", env.fromElements(1, 2, 3));
+        tEnv.createTemporaryView("test", env.fromData(1, 2, 3));
 
         // trigger translation
         Table table = tEnv.sqlQuery("SELECT * FROM test");
@@ -169,6 +168,6 @@ class EnvironmentTest {
         configuration.setString("type", "generic_in_memory");
         tbEnv.createCatalog("test_catalog", CatalogDescriptor.of("test_catalog", configuration));
 
-        assertTrue(catalogStore.contains("test_catalog"));
+        assertThat(catalogStore.contains("test_catalog")).isTrue();
     }
 }

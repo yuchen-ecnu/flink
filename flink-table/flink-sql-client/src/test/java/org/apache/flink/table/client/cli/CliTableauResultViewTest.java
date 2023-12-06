@@ -38,6 +38,7 @@ import org.apache.flink.testutils.executor.TestExecutorExtension;
 import org.apache.flink.types.Row;
 import org.apache.flink.types.RowKind;
 
+import org.jetbrains.annotations.NotNull;
 import org.jline.terminal.Terminal;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -58,6 +59,7 @@ import java.util.stream.Collectors;
 import static org.apache.flink.configuration.ExecutionOptions.RUNTIME_MODE;
 import static org.apache.flink.core.testutils.FlinkAssertions.anyCauseMatches;
 import static org.apache.flink.table.client.config.SqlClientOptions.DISPLAY_MAX_COLUMN_WIDTH;
+import static org.apache.flink.table.client.config.SqlClientOptions.DISPLAY_QUERY_TIME_COST;
 import static org.apache.flink.table.client.config.SqlClientOptions.EXECUTION_RESULT_MODE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -179,20 +181,20 @@ class CliTableauResultViewTest {
     }
 
     @Test
-    void testBatchResult() {
+    void testBatchResultWithDisabledDisplayTimeCost() {
         final Configuration testConfig = new Configuration();
         testConfig.set(EXECUTION_RESULT_MODE, ResultMode.TABLEAU);
         testConfig.set(RUNTIME_MODE, RuntimeExecutionMode.BATCH);
+        testConfig.set(DISPLAY_QUERY_TIME_COST, false);
 
         ResultDescriptor resultDescriptor =
                 new ResultDescriptor(CliClientTestUtils.createTestClient(schema), testConfig);
-        TestChangelogResult collectResult =
-                new TestChangelogResult(
-                        () -> TypedResult.payload(data.subList(0, data.size() / 2)),
-                        () -> TypedResult.payload(data.subList(data.size() / 2, data.size())),
-                        TypedResult::endOfStream);
         CliTableauResultView view =
-                new CliTableauResultView(terminal, resultDescriptor, collectResult);
+                new CliTableauResultView(
+                        terminal,
+                        resultDescriptor,
+                        createNewTestChangelogResult(),
+                        System.currentTimeMillis());
         view.displayResults();
         assertThat(terminalOutput)
                 .hasToString(
@@ -223,17 +225,68 @@ class CliTableauResultViewTest {
                                 + "8 rows in set"
                                 + System.lineSeparator());
 
+        view.close();
+
         // adjust the max column width for printing
         testConfig.set(DISPLAY_MAX_COLUMN_WIDTH, 80);
 
-        collectResult =
-                new TestChangelogResult(
-                        () -> TypedResult.payload(data.subList(0, data.size() / 2)),
-                        () -> TypedResult.payload(data.subList(data.size() / 2, data.size())),
-                        TypedResult::endOfStream);
-        view = new CliTableauResultView(terminal, resultDescriptor, collectResult);
+        TestChangelogResult collectResult = createNewTestChangelogResult();
+        view =
+                new CliTableauResultView(
+                        terminal, resultDescriptor, collectResult, System.currentTimeMillis());
         view.displayResults();
         assertThat(terminalOutput.toString()).contains("abcdefghijklmnopqrstuvwxyz12345");
+
+        view.close();
+
+        // Job is finished. Don't need to close the job manually.
+        assertThat(collectResult.closed).isFalse();
+    }
+
+    @Test
+    void testBatchResultWithDisplayTimeCost() {
+        final Configuration testConfig = new Configuration();
+        testConfig.set(EXECUTION_RESULT_MODE, ResultMode.TABLEAU);
+        testConfig.set(RUNTIME_MODE, RuntimeExecutionMode.BATCH);
+
+        ResultDescriptor resultDescriptor =
+                new ResultDescriptor(CliClientTestUtils.createTestClient(schema), testConfig);
+        TestChangelogResult collectResult = createNewTestChangelogResult();
+        CliTableauResultView view =
+                new CliTableauResultView(
+                        terminal, resultDescriptor, collectResult, System.currentTimeMillis());
+        view.displayResults();
+        assertThat(terminalOutput.toString())
+                .contains(
+                        "+---------+-------------+----------------------+--------------------------------+----------------+----------------------------+---------------------+"
+                                + System.lineSeparator()
+                                + "| boolean |         int |               bigint |                        varchar | decimal(10, 5) |                  timestamp |              binary |"
+                                + System.lineSeparator()
+                                + "+---------+-------------+----------------------+--------------------------------+----------------+----------------------------+---------------------+"
+                                + System.lineSeparator()
+                                + "|  <NULL> |           1 |                    2 |                            abc |        1.23000 | 2020-03-01 18:39:14.000000 | x'32333485365d737e' |"
+                                + System.lineSeparator()
+                                + "|   FALSE |      <NULL> |                    0 |                                |        1.00000 | 2020-03-01 18:39:14.100000 |       x'649e207983' |"
+                                + System.lineSeparator()
+                                + "|    TRUE |  2147483647 |               <NULL> |                        abcdefg |    12345.00000 | 2020-03-01 18:39:14.120000 |         x'92e90102' |"
+                                + System.lineSeparator()
+                                + "|   FALSE | -2147483648 |  9223372036854775807 |                         <NULL> |    12345.06789 | 2020-03-01 18:39:14.123000 | x'32333485365d737e' |"
+                                + System.lineSeparator()
+                                + "|    TRUE |         100 | -9223372036854775808 |                     abcdefg111 |         <NULL> | 2020-03-01 18:39:14.123456 |         x'6e17fffe' |"
+                                + System.lineSeparator()
+                                + "|  <NULL> |          -1 |                   -1 | abcdefghijklmnopqrstuvwxyz1... |   -12345.06789 |                     <NULL> |              <NULL> |"
+                                + System.lineSeparator()
+                                + "|  <NULL> |          -1 |                   -1 |                   这是一段中文 |   -12345.06789 | 2020-03-04 18:39:14.000000 |   x'fdfeff00010203' |"
+                                + System.lineSeparator()
+                                + "|  <NULL> |          -1 |                   -1 |  これは日本語をテストするた... |   -12345.06789 | 2020-03-04 18:39:14.000000 |   x'fdfeff00010203' |"
+                                + System.lineSeparator()
+                                + "+---------+-------------+----------------------+--------------------------------+----------------+----------------------------+---------------------+"
+                                + System.lineSeparator()
+                                + "8 rows in set");
+
+        String[] outputLines = terminalOutput.toString().split("\\r?\\n");
+        assertThat(outputLines[outputLines.length - 1])
+                .matches("8 rows in set \\(\\d+\\.\\d{2} seconds\\)");
 
         view.close();
         // Job is finished. Don't need to close the job manually.
@@ -245,6 +298,8 @@ class CliTableauResultViewTest {
         final Configuration testConfig = new Configuration();
         testConfig.set(EXECUTION_RESULT_MODE, ResultMode.TABLEAU);
         testConfig.set(RUNTIME_MODE, RuntimeExecutionMode.BATCH);
+        testConfig.set(DISPLAY_QUERY_TIME_COST, false);
+
         ResultDescriptor resultDescriptor =
                 new ResultDescriptor(CliClientTestUtils.createTestClient(schema), testConfig);
         TestChangelogResult collectResult =
@@ -252,7 +307,8 @@ class CliTableauResultViewTest {
                         () -> TypedResult.payload(data.subList(0, data.size() / 2)),
                         TypedResult::empty);
         CliTableauResultView view =
-                new CliTableauResultView(terminal, resultDescriptor, collectResult);
+                new CliTableauResultView(
+                        terminal, resultDescriptor, collectResult, System.currentTimeMillis());
 
         // submit result display in another thread
         Future<?> furture = EXECUTOR_RESOURCE.getExecutor().submit(view::displayResults);
@@ -273,7 +329,33 @@ class CliTableauResultViewTest {
     }
 
     @Test
-    void testEmptyBatchResult() {
+    void testEmptyBatchResultWithDisabledDisplayTimeCost() {
+        final Configuration testConfig = new Configuration();
+        testConfig.set(EXECUTION_RESULT_MODE, ResultMode.TABLEAU);
+        testConfig.set(RUNTIME_MODE, RuntimeExecutionMode.BATCH);
+        testConfig.set(DISPLAY_QUERY_TIME_COST, false);
+
+        ResultDescriptor resultDescriptor =
+                new ResultDescriptor(CliClientTestUtils.createTestClient(schema), testConfig);
+        TestChangelogResult testChangelogResult = new TestChangelogResult(TypedResult::endOfStream);
+        CliTableauResultView view =
+                new CliTableauResultView(
+                        terminal,
+                        resultDescriptor,
+                        testChangelogResult,
+                        System.currentTimeMillis());
+
+        view.displayResults();
+        view.close();
+
+        assertThat(terminalOutput).hasToString("Empty set" + System.lineSeparator());
+
+        // Job is finished. Don't need to close the job manually.
+        assertThat(testChangelogResult.closed).isFalse();
+    }
+
+    @Test
+    void testEmptyBatchResultWithDisplayingTimeCost() {
         final Configuration testConfig = new Configuration();
         testConfig.set(EXECUTION_RESULT_MODE, ResultMode.TABLEAU);
         testConfig.set(RUNTIME_MODE, RuntimeExecutionMode.BATCH);
@@ -282,12 +364,19 @@ class CliTableauResultViewTest {
                 new ResultDescriptor(CliClientTestUtils.createTestClient(schema), testConfig);
         TestChangelogResult testChangelogResult = new TestChangelogResult(TypedResult::endOfStream);
         CliTableauResultView view =
-                new CliTableauResultView(terminal, resultDescriptor, testChangelogResult);
+                new CliTableauResultView(
+                        terminal,
+                        resultDescriptor,
+                        testChangelogResult,
+                        System.currentTimeMillis());
 
         view.displayResults();
         view.close();
 
-        assertThat(terminalOutput).hasToString("Empty set" + System.lineSeparator());
+        String[] outputLines = terminalOutput.toString().split("\\r?\\n");
+        assertThat(outputLines[outputLines.length - 1])
+                .matches("Empty set \\(\\d+\\.\\d{2} seconds\\)");
+
         // Job is finished. Don't need to close the job manually.
         assertThat(testChangelogResult.closed).isFalse();
     }
@@ -306,7 +395,8 @@ class CliTableauResultViewTest {
                         });
 
         CliTableauResultView view =
-                new CliTableauResultView(terminal, resultDescriptor, changelogResult);
+                new CliTableauResultView(
+                        terminal, resultDescriptor, changelogResult, System.currentTimeMillis());
 
         assertThatThrownBy(view::displayResults)
                 .satisfies(anyCauseMatches(SqlExecutionException.class, "query failed"));
@@ -319,16 +409,14 @@ class CliTableauResultViewTest {
         final Configuration testConfig = new Configuration();
         testConfig.set(EXECUTION_RESULT_MODE, ResultMode.TABLEAU);
         testConfig.set(RUNTIME_MODE, RuntimeExecutionMode.STREAMING);
+        testConfig.set(DISPLAY_QUERY_TIME_COST, false);
 
         ResultDescriptor resultDescriptor =
                 new ResultDescriptor(CliClientTestUtils.createTestClient(schema), testConfig);
-        TestChangelogResult collectResult =
-                new TestChangelogResult(
-                        () -> TypedResult.payload(data.subList(0, data.size() / 2)),
-                        () -> TypedResult.payload(data.subList(data.size() / 2, data.size())),
-                        TypedResult::endOfStream);
+        TestChangelogResult collectResult = createNewTestChangelogResult();
         CliTableauResultView view =
-                new CliTableauResultView(terminal, resultDescriptor, collectResult);
+                new CliTableauResultView(
+                        terminal, resultDescriptor, collectResult, System.currentTimeMillis());
         view.displayResults();
 
         view.close();
@@ -369,12 +457,10 @@ class CliTableauResultViewTest {
         // adjust the max column width for printing
         testConfig.set(DISPLAY_MAX_COLUMN_WIDTH, 80);
 
-        collectResult =
-                new TestChangelogResult(
-                        () -> TypedResult.payload(data.subList(0, data.size() / 2)),
-                        () -> TypedResult.payload(data.subList(data.size() / 2, data.size())),
-                        TypedResult::endOfStream);
-        view = new CliTableauResultView(terminal, resultDescriptor, collectResult);
+        collectResult = createNewTestChangelogResult();
+        view =
+                new CliTableauResultView(
+                        terminal, resultDescriptor, collectResult, System.currentTimeMillis());
         view.displayResults();
         assertThat(terminalOutput.toString()).contains("abcdefghijklmnopqrstuvwxyz12345");
 
@@ -387,12 +473,15 @@ class CliTableauResultViewTest {
         final Configuration testConfig = new Configuration();
         testConfig.set(EXECUTION_RESULT_MODE, ResultMode.TABLEAU);
         testConfig.set(RUNTIME_MODE, RuntimeExecutionMode.STREAMING);
+        testConfig.set(DISPLAY_QUERY_TIME_COST, false);
+
         ResultDescriptor resultDescriptor =
                 new ResultDescriptor(CliClientTestUtils.createTestClient(schema), testConfig);
         TestChangelogResult collectResult = new TestChangelogResult(TypedResult::endOfStream);
 
         CliTableauResultView view =
-                new CliTableauResultView(terminal, resultDescriptor, collectResult);
+                new CliTableauResultView(
+                        terminal, resultDescriptor, collectResult, System.currentTimeMillis());
 
         view.displayResults();
         view.close();
@@ -407,6 +496,7 @@ class CliTableauResultViewTest {
                                 + System.lineSeparator()
                                 + "Received a total of 0 row"
                                 + System.lineSeparator());
+
         // Job is finished. Don't need to close the job manually.
         assertThat(collectResult.closed).isFalse();
     }
@@ -416,6 +506,7 @@ class CliTableauResultViewTest {
         final Configuration testConfig = new Configuration();
         testConfig.set(EXECUTION_RESULT_MODE, ResultMode.TABLEAU);
         testConfig.set(RUNTIME_MODE, RuntimeExecutionMode.STREAMING);
+        testConfig.set(DISPLAY_QUERY_TIME_COST, false);
 
         TestChangelogResult collectResult =
                 new TestChangelogResult(
@@ -426,7 +517,8 @@ class CliTableauResultViewTest {
         ResultDescriptor resultDescriptor =
                 new ResultDescriptor(CliClientTestUtils.createTestClient(schema), testConfig);
         CliTableauResultView view =
-                new CliTableauResultView(terminal, resultDescriptor, collectResult);
+                new CliTableauResultView(
+                        terminal, resultDescriptor, collectResult, System.currentTimeMillis());
 
         // submit result display in another thread
         Future<?> furture = EXECUTOR_RESOURCE.getExecutor().submit(view::displayResults);
@@ -457,6 +549,7 @@ class CliTableauResultViewTest {
                                 + System.lineSeparator()
                                 + "Query terminated, received a total of 4 rows"
                                 + System.lineSeparator());
+
         // close job manually
         assertThat(collectResult.closed).isTrue();
     }
@@ -474,12 +567,23 @@ class CliTableauResultViewTest {
                             throw new SqlExecutionException("query failed");
                         });
         CliTableauResultView view =
-                new CliTableauResultView(terminal, resultDescriptor, changelogResult);
+                new CliTableauResultView(
+                        terminal, resultDescriptor, changelogResult, System.currentTimeMillis());
 
         assertThatThrownBy(view::displayResults)
                 .satisfies(anyCauseMatches(SqlExecutionException.class, "query failed"));
         view.close();
         assertThat(changelogResult.closed).isTrue();
+    }
+
+    @NotNull
+    private TestChangelogResult createNewTestChangelogResult() {
+        TestChangelogResult collectResult =
+                new TestChangelogResult(
+                        () -> TypedResult.payload(data.subList(0, data.size() / 2)),
+                        () -> TypedResult.payload(data.subList(data.size() / 2, data.size())),
+                        TypedResult::endOfStream);
+        return collectResult;
     }
 
     private static class TestChangelogResult implements ChangelogResult {

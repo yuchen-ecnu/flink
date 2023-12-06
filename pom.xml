@@ -146,12 +146,12 @@ under the License.
 		<curator.version>5.4.0</curator.version>
 		<avro.version>1.11.3</avro.version>
 		<!-- Version for transitive Jackson dependencies that are not used within Flink itself.-->
-		<jackson-bom.version>2.14.3</jackson-bom.version>
+		<jackson-bom.version>2.15.3</jackson-bom.version>
 		<javax.activation.api.version>1.2.0</javax.activation.api.version>
 		<jaxb.api.version>2.3.1</jaxb.api.version>
 		<junit4.version>4.13.2</junit4.version>
 		<junit5.version>5.9.1</junit5.version>
-		<archunit.version>1.0.0</archunit.version>
+		<archunit.version>1.2.0</archunit.version>
 		<mockito.version>3.4.6</mockito.version>
 		<powermock.version>2.0.9</powermock.version>
 		<hamcrest.version>1.3</hamcrest.version>
@@ -160,7 +160,7 @@ under the License.
 		<beam.version>2.43.0</beam.version>
 		<protoc.version>3.21.7</protoc.version>
 		<okhttp.version>3.14.9</okhttp.version>
-		<testcontainers.version>1.18.3</testcontainers.version>
+		<testcontainers.version>1.19.1</testcontainers.version>
 		<lz4.version>1.8.0</lz4.version>
 		<japicmp.skip>false</japicmp.skip>
 		<flink.convergence.phase>validate</flink.convergence.phase>
@@ -173,7 +173,7 @@ under the License.
 		<minikdc.version>3.2.4</minikdc.version>
 		<hive.version>2.3.9</hive.version>
 		<orc.version>1.5.6</orc.version>
-		<japicmp.referenceVersion>1.17.0</japicmp.referenceVersion>
+		<japicmp.referenceVersion>1.18.0</japicmp.referenceVersion>
 		<japicmp.outputDir>tools/japicmp-output</japicmp.outputDir>
 		<spotless.version>2.27.1</spotless.version>
 		<spotless.scalafmt.version>3.4.3</spotless.scalafmt.version>
@@ -887,7 +887,7 @@ under the License.
 			<dependency>
 				<groupId>io.netty</groupId>
 				<artifactId>netty-bom</artifactId>
-				<version>4.1.70.Final</version>
+				<version>4.1.100.Final</version>
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
@@ -965,9 +965,7 @@ under the License.
 				<scala.binary.version>2.12</scala.binary.version>
 			</properties>
 			<activation>
-				<property>
-					<name>!old-and-unsupported-scala-version</name>
-				</property>
+				<activeByDefault>true</activeByDefault>
 			</activation>
 			<build>
 				<plugins>
@@ -1104,6 +1102,11 @@ under the License.
 
 		<profile>
 			<id>java17-target</id>
+
+			<modules>
+				<module>flink-tests-java17</module>
+			</modules>
+
 			<build>
 				<plugins>
 					<plugin>
@@ -1150,6 +1153,28 @@ under the License.
 						</plugin>
 					</plugins>
 				</pluginManagement>
+			</build>
+		</profile>
+
+		<profile>
+			<id>java21-target</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-compiler-plugin</artifactId>
+						<configuration>
+							<source>21</source>
+							<target>21</target>
+							<compilerArgs combine.children="append">
+								<arg>--add-exports=java.base/sun.net.util=ALL-UNNAMED</arg>
+								<arg>--add-exports=java.management/sun.management=ALL-UNNAMED</arg>
+								<arg>--add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED</arg>
+								<arg>--add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED</arg>
+							</compilerArgs>
+						</configuration>
+					</plugin>
+				</plugins>
 			</build>
 		</profile>
 
@@ -1511,7 +1536,6 @@ under the License.
 						<license implementation="org.apache.rat.analysis.license.SimplePatternBasedLicense">
 							<licenseFamilyCategory>AL2 </licenseFamilyCategory>
 							<licenseFamilyName>Apache License 2.0</licenseFamilyName>
-							<notes />
 							<patterns>
 								<pattern>Licensed to the Apache Software Foundation (ASF) under one</pattern>
 							</patterns>
@@ -1598,6 +1622,8 @@ under the License.
 						<exclude>flink-end-to-end-tests/flink-tpcds-test/tpcds-tool/answer_set/*</exclude>
 						<exclude>flink-end-to-end-tests/flink-tpcds-test/tpcds-tool/query/*</exclude>
 						<exclude>flink-table/flink-table-code-splitter/src/test/resources/**</exclude>
+						<exclude>flink-tests/src/test/resources/avro/*.avsc</exclude>
+						<exclude>flink-connectors/flink-connector-datagen-test/src/test/resources/avro/*.avsc</exclude>
 
 						<!-- ArchUnit violation stores  -->
 						<exclude>**/archunit-violations/**</exclude>
@@ -2207,7 +2233,7 @@ under the License.
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-shade-plugin</artifactId>
-					<version>3.4.1</version>
+					<version>3.5.1</version>
 				</plugin>
 
 				<plugin>
@@ -2270,6 +2296,11 @@ under the License.
 								<exclude>@org.apache.flink.annotation.PublicEvolving</exclude>
 								<exclude>@org.apache.flink.annotation.Internal</exclude>
 								<!-- MARKER: start exclusions; these will be wiped by tools/releasing/update_japicmp_configuration.sh -->
+								<exclude>org.apache.flink.streaming.api.environment.StreamExecutionEnvironment#fromData(java.lang.Object[])</exclude>
+								<exclude>org.apache.flink.streaming.api.environment.StreamExecutionEnvironment#fromData(org.apache.flink.api.common.typeinfo.TypeInformation,java.lang.Object[])</exclude>
+								<exclude>org.apache.flink.streaming.api.environment.StreamExecutionEnvironment#fromData(java.lang.Class,java.lang.Object[])</exclude>
+								<exclude>org.apache.flink.streaming.api.environment.StreamExecutionEnvironment#fromData(java.util.Collection)</exclude>
+								<exclude>org.apache.flink.streaming.api.environment.StreamExecutionEnvironment#fromData(java.util.Collection,org.apache.flink.api.common.typeinfo.TypeInformation)</exclude>
 								<!-- MARKER: end exclusions -->
 							</excludes>
 							<accessModifier>public</accessModifier>

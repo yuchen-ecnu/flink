@@ -43,8 +43,12 @@ import org.apache.flink.table.test.program.TestStep.TestKind;
 import org.apache.flink.test.junit5.MiniClusterExtension;
 
 import org.apache.commons.collections.CollectionUtils;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -78,17 +82,36 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @ExtendWith(MiniClusterExtension.class)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@TestMethodOrder(OrderAnnotation.class)
 public abstract class RestoreTestBase implements TableTestProgramRunner {
 
     private final Class<? extends ExecNode> execNodeUnderTest;
+    private final AfterRestoreSource afterRestoreSource;
 
     protected RestoreTestBase(Class<? extends ExecNode> execNodeUnderTest) {
         this.execNodeUnderTest = execNodeUnderTest;
+        this.afterRestoreSource = AfterRestoreSource.FINITE;
+    }
+
+    protected RestoreTestBase(
+            Class<? extends ExecNode> execNodeUnderTest, AfterRestoreSource state) {
+        this.execNodeUnderTest = execNodeUnderTest;
+        this.afterRestoreSource = state;
+    }
+
+    /**
+     * AfterRestoreSource defines the source behavior while running {@link
+     * RestoreTestBase#testRestore}.
+     */
+    protected enum AfterRestoreSource {
+        FINITE,
+        INFINITE
     }
 
     @Override
     public EnumSet<TestKind> supportedSetupSteps() {
         return EnumSet.of(
+                TestKind.CONFIG,
                 TestKind.FUNCTION,
                 TestKind.SOURCE_WITH_RESTORE_DATA,
                 TestKind.SINK_WITH_RESTORE_DATA);
@@ -97,6 +120,11 @@ public abstract class RestoreTestBase implements TableTestProgramRunner {
     @Override
     public EnumSet<TestKind> supportedRunSteps() {
         return EnumSet.of(TestKind.SQL);
+    }
+
+    @AfterEach
+    public void clearData() {
+        TestValuesTableFactory.clearAllData();
     }
 
     private @TempDir Path tmpDir;
@@ -116,6 +144,30 @@ public abstract class RestoreTestBase implements TableTestProgramRunner {
                                 supportedPrograms().stream().map(p -> Arguments.of(p, metadata)));
     }
 
+    private void registerSinkObserver(
+            final List<CompletableFuture<?>> futures,
+            final SinkTestStep sinkTestStep,
+            final boolean ignoreAfter) {
+        final CompletableFuture<Object> future = new CompletableFuture<>();
+        futures.add(future);
+        final String tableName = sinkTestStep.name;
+        TestValuesTableFactory.registerLocalRawResultsObserver(
+                tableName,
+                (integer, strings) -> {
+                    List<String> results = new ArrayList<>();
+                    results.addAll(sinkTestStep.getExpectedBeforeRestoreAsStrings());
+                    if (!ignoreAfter) {
+                        results.addAll(sinkTestStep.getExpectedAfterRestoreAsStrings());
+                    }
+                    List<String> expectedResults = getExpectedResults(sinkTestStep, tableName);
+                    final boolean shouldComplete =
+                            CollectionUtils.isEqualCollection(expectedResults, results);
+                    if (shouldComplete) {
+                        future.complete(null);
+                    }
+                });
+    }
+
     /**
      * Execute this test to generate test files. Remember to be using the correct branch when
      * generating the test files.
@@ -123,9 +175,11 @@ public abstract class RestoreTestBase implements TableTestProgramRunner {
     @Disabled
     @ParameterizedTest
     @MethodSource("supportedPrograms")
+    @Order(0)
     public void generateTestSetupFiles(TableTestProgram program) throws Exception {
         final TableEnvironment tEnv =
                 TableEnvironment.create(EnvironmentSettings.inStreamingMode());
+        program.getSetupConfigOptionTestSteps().forEach(s -> s.apply(tEnv));
         tEnv.getConfig()
                 .set(
                         TableConfigOptions.PLAN_COMPILE_CATALOG_OBJECTS,
@@ -143,20 +197,7 @@ public abstract class RestoreTestBase implements TableTestProgramRunner {
 
         final List<CompletableFuture<?>> futures = new ArrayList<>();
         for (SinkTestStep sinkTestStep : program.getSetupSinkTestSteps()) {
-            final CompletableFuture<Object> future = new CompletableFuture<>();
-            futures.add(future);
-            final String tableName = sinkTestStep.name;
-            TestValuesTableFactory.registerLocalRawResultsObserver(
-                    tableName,
-                    (integer, strings) -> {
-                        final boolean shouldTakeSavepoint =
-                                CollectionUtils.isEqualCollection(
-                                        TestValuesTableFactory.getRawResultsAsStrings(tableName),
-                                        sinkTestStep.getExpectedBeforeRestoreAsStrings());
-                        if (shouldTakeSavepoint) {
-                            future.complete(null);
-                        }
-                    });
+            registerSinkObserver(futures, sinkTestStep, true);
             final Map<String, String> options = new HashMap<>();
             options.put("connector", "values");
             options.put("disable-lookup", "true");
@@ -187,6 +228,7 @@ public abstract class RestoreTestBase implements TableTestProgramRunner {
 
     @ParameterizedTest
     @MethodSource("createSpecs")
+    @Order(1)
     void testRestore(TableTestProgram program, ExecNodeMetadata metadata) throws Exception {
         final EnvironmentSettings settings = EnvironmentSettings.inStreamingMode();
         final SavepointRestoreSettings restoreSettings =
@@ -200,6 +242,7 @@ public abstract class RestoreTestBase implements TableTestProgramRunner {
                 .set(
                         TableConfigOptions.PLAN_RESTORE_CATALOG_OBJECTS,
                         TableConfigOptions.CatalogPlanRestore.IDENTIFIER);
+
         for (SourceTestStep sourceTestStep : program.getSetupSourceTestSteps()) {
             final String id = TestValuesTableFactory.registerData(sourceTestStep.dataAfterRestore);
             final Map<String, String> options = new HashMap<>();
@@ -207,10 +250,18 @@ public abstract class RestoreTestBase implements TableTestProgramRunner {
             options.put("data-id", id);
             options.put("disable-lookup", "true");
             options.put("runtime-source", "NewSource");
+            if (afterRestoreSource == AfterRestoreSource.INFINITE) {
+                options.put("terminating", "false");
+            }
             sourceTestStep.apply(tEnv, options);
         }
 
+        final List<CompletableFuture<?>> futures = new ArrayList<>();
+
         for (SinkTestStep sinkTestStep : program.getSetupSinkTestSteps()) {
+            if (afterRestoreSource == AfterRestoreSource.INFINITE) {
+                registerSinkObserver(futures, sinkTestStep, false);
+            }
             final Map<String, String> options = new HashMap<>();
             options.put("connector", "values");
             options.put("disable-lookup", "true");
@@ -222,16 +273,24 @@ public abstract class RestoreTestBase implements TableTestProgramRunner {
 
         final CompiledPlan compiledPlan =
                 tEnv.loadPlan(PlanReference.fromFile(getPlanPath(program, metadata)));
-        compiledPlan.execute().await();
-        for (SinkTestStep sinkTestStep : program.getSetupSinkTestSteps()) {
-            assertThat(TestValuesTableFactory.getRawResultsAsStrings(sinkTestStep.name))
-                    .containsExactlyInAnyOrder(
-                            Stream.concat(
-                                            sinkTestStep.getExpectedBeforeRestoreAsStrings()
-                                                    .stream(),
-                                            sinkTestStep.getExpectedAfterRestoreAsStrings()
-                                                    .stream())
-                                    .toArray(String[]::new));
+
+        if (afterRestoreSource == AfterRestoreSource.INFINITE) {
+            final TableResult tableResult = compiledPlan.execute();
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get();
+            tableResult.getJobClient().get().cancel().get();
+        } else {
+            compiledPlan.execute().await();
+            for (SinkTestStep sinkTestStep : program.getSetupSinkTestSteps()) {
+                List<String> expectedResults = getExpectedResults(sinkTestStep, sinkTestStep.name);
+                assertThat(expectedResults)
+                        .containsExactlyInAnyOrder(
+                                Stream.concat(
+                                                sinkTestStep.getExpectedBeforeRestoreAsStrings()
+                                                        .stream(),
+                                                sinkTestStep.getExpectedAfterRestoreAsStrings()
+                                                        .stream())
+                                        .toArray(String[]::new));
+            }
         }
     }
 
@@ -248,5 +307,13 @@ public abstract class RestoreTestBase implements TableTestProgramRunner {
         return String.format(
                 "%s/src/test/resources/restore-tests/%s_%d/%s",
                 System.getProperty("user.dir"), metadata.name(), metadata.version(), program.id);
+    }
+
+    private static List<String> getExpectedResults(SinkTestStep sinkTestStep, String tableName) {
+        if (sinkTestStep.getTestChangelogData()) {
+            return TestValuesTableFactory.getRawResultsAsStrings(tableName);
+        } else {
+            return TestValuesTableFactory.getResultsAsStrings(tableName);
+        }
     }
 }
