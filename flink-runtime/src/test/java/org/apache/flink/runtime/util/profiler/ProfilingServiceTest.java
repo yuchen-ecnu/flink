@@ -44,6 +44,7 @@ public class ProfilingServiceTest {
     private static final Logger LOG = LoggerFactory.getLogger(ProfilingServiceTest.class);
     private static final Configuration configs = new Configuration();
     private static final String NO_ACCESS_TO_PERF_EVENTS = "No access to perf events.";
+    private static final String NO_ALLOC_SYMBOL_FOUND = "No AllocTracer symbols found.";
     private static final String resourceID = "TestJobManager";
     private static final long profilingDuration = 3L;
     private static final int historySizeLimit = 3;
@@ -98,7 +99,7 @@ public class ProfilingServiceTest {
         for (ProfilingInfo.ProfilingMode mode : ProfilingInfo.ProfilingMode.values()) {
             ProfilingInfo profilingInfo =
                     profilingService.requestProfiling(resourceID, profilingDuration, mode).get();
-            if (isNoPermission(profilingInfo)) {
+            if (isNoPermissionOrAllocateSymbol(profilingInfo)) {
                 LOG.warn(
                         "Ignoring failed profiling instance in {} mode, which caused by no permission.",
                         profilingInfo.getProfilingMode());
@@ -150,13 +151,20 @@ public class ProfilingServiceTest {
     }
 
     /**
-     * Check profiling instance failed caused by no permission to perf_events.
+     * Check profiling instance failed caused by no permission to perf_events or missing of JDK
+     * debug symbols.
      *
      * @return true if no permission to access perf_events.
      */
-    private boolean isNoPermission(ProfilingInfo profilingInfo) {
-        return profilingInfo.getStatus() == ProfilingInfo.ProfilingStatus.FAILED
-                && !StringUtils.isNullOrWhitespaceOnly(profilingInfo.getMessage())
-                && profilingInfo.getMessage().contains(NO_ACCESS_TO_PERF_EVENTS);
+    private boolean isNoPermissionOrAllocateSymbol(ProfilingInfo profilingInfo) {
+        boolean isNoPermission =
+                profilingInfo.getStatus() == ProfilingInfo.ProfilingStatus.FAILED
+                        && !StringUtils.isNullOrWhitespaceOnly(profilingInfo.getMessage())
+                        && profilingInfo.getMessage().contains(NO_ACCESS_TO_PERF_EVENTS);
+        boolean isNoAllocateSymbol =
+                profilingInfo.getStatus() == ProfilingInfo.ProfilingStatus.FAILED
+                        && !StringUtils.isNullOrWhitespaceOnly(profilingInfo.getMessage())
+                        && profilingInfo.getMessage().contains(NO_ALLOC_SYMBOL_FOUND);
+        return isNoPermission || isNoAllocateSymbol;
     }
 }
