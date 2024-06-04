@@ -23,6 +23,7 @@ import org.apache.flink.streaming.runtime.partitioner.ForwardPartitioner;
 import org.apache.flink.streaming.runtime.partitioner.RescalePartitioner;
 import org.apache.flink.streaming.runtime.partitioner.StreamPartitioner;
 
+import java.util.List;
 import java.util.Map;
 
 public class StreamGraphManagerContext {
@@ -42,7 +43,33 @@ public class StreamGraphManagerContext {
         this.opIntermediateOutputsCaches = opIntermediateOutputsCaches;
     }
 
-    public boolean modifyStreamEdge(StreamEdgeUpdateRequestInfo requestInfo) {
+    public boolean modifyStreamEdge(List<StreamEdgeUpdateRequestInfo> requestInfos) {
+        for (StreamEdgeUpdateRequestInfo requestInfo : requestInfos) {
+            if (!modifyStreamEdgeValidate(requestInfo)) {
+                return false;
+            }
+        }
+
+        for (StreamEdgeUpdateRequestInfo requestInfo : requestInfos) {
+            Integer sourceNodeId = requestInfo.getSourceId();
+            Integer targetNodeId = requestInfo.getTargetId();
+            StreamEdge targetEdge =
+                    getStreamEdge(sourceNodeId, targetNodeId, requestInfo.getEdgeId());
+            StreamPartitioner<?> newPartitioner = requestInfo.getOutputPartitioner();
+            if (newPartitioner != null) {
+                modifyOutputPartitioner(targetEdge, newPartitioner);
+            }
+        }
+
+        return true;
+    }
+
+    // TODO: implement this function
+    public boolean modifyStreamNode(StreamNodeUpdateRequestInfo requestInfo) {
+        return true;
+    }
+
+    private boolean modifyStreamEdgeValidate(StreamEdgeUpdateRequestInfo requestInfo) {
         StreamEdge targetEdge =
                 getStreamEdge(
                         requestInfo.getSourceId(),
@@ -57,34 +84,41 @@ public class StreamGraphManagerContext {
             return false;
         }
         StreamPartitioner<?> newPartitioner = requestInfo.getOutputPartitioner();
-        if (requestInfo.getOutputPartitioner() != null) {
+        if (newPartitioner != null) {
             if (targetEdge.getPartitioner() instanceof ForwardPartitioner) {
                 return false;
             }
-            if (streamGraph.isDynamic() && newPartitioner instanceof ForwardPartitioner) {
-                if (!mergeForwardGroups(sourceNodeId, targetNodeId)) {
-                    newPartitioner = new RescalePartitioner<>();
-                }
-            }
-            targetEdge.setPartitioner(newPartitioner);
-            Integer startNodeId = frozenNodeToStartNodeMap.get(sourceNodeId);
-            NonChainedOutput output =
-                    (startNodeId != null)
-                            ? opIntermediateOutputsCaches.get(startNodeId).get(targetEdge)
-                            : null;
-            if (output != null) {
-                output.setPartitioner(newPartitioner);
+            if (streamGraph.isDynamic()
+                    && newPartitioner instanceof ForwardPartitioner
+                    && !canMergeForwardGroups(sourceNodeId, targetNodeId)) {
+                requestInfo.outputPartitioner(new RescalePartitioner<>());
             }
         }
         return true;
     }
 
-    // TODO: implement this function
-    public boolean modifyStreamNode(StreamNodeUpdateRequestInfo requestInfo) {
-        return true;
+    private void modifyOutputPartitioner(
+            StreamEdge targetEdge, StreamPartitioner<?> newPartitioner) {
+        if (newPartitioner == null || targetEdge == null) {
+            return;
+        }
+        Integer sourceNodeId = targetEdge.getSourceId();
+        Integer targetNodeId = targetEdge.getTargetId();
+        if (streamGraph.isDynamic() && newPartitioner instanceof ForwardPartitioner) {
+            mergeForwardGroups(sourceNodeId, targetNodeId);
+        }
+        targetEdge.setPartitioner(newPartitioner);
+        Integer startNodeId = frozenNodeToStartNodeMap.get(sourceNodeId);
+        NonChainedOutput output =
+                (startNodeId != null)
+                        ? opIntermediateOutputsCaches.get(startNodeId).get(targetEdge)
+                        : null;
+        if (output != null) {
+            output.setPartitioner(newPartitioner);
+        }
     }
 
-    private boolean mergeForwardGroups(Integer sourceNodeId, Integer targetNodeId) {
+    private boolean canMergeForwardGroups(Integer sourceNodeId, Integer targetNodeId) {
         StreamNodeForwardGroup sourceForwardGroup =
                 forwardGroupsByStartNodeIdCache.get(sourceNodeId);
         StreamNodeForwardGroup targetForwardGroup =
@@ -92,57 +126,64 @@ public class StreamGraphManagerContext {
         if (sourceForwardGroup == null || targetForwardGroup == null) {
             return false;
         }
-        if ((!targetForwardGroup.isParallelismDecided()
+        return (!targetForwardGroup.isParallelismDecided()
                         || (sourceForwardGroup.isParallelismDecided()
                                 && targetForwardGroup.getParallelism()
                                         == sourceForwardGroup.getParallelism()))
                 && (!targetForwardGroup.isMaxParallelismDecided()
                         || (sourceForwardGroup.isMaxParallelismDecided())
                                 && sourceForwardGroup.getMaxParallelism()
-                                        >= targetForwardGroup.getMaxParallelism())) {
-            sourceForwardGroup.mergeForwardGroup(targetForwardGroup);
+                                        >= targetForwardGroup.getMaxParallelism());
+    }
 
-            targetForwardGroup
-                    .getStartNodeIds()
-                    .forEach(
-                            startNodeId ->
-                                    forwardGroupsByStartNodeIdCache.put(
-                                            startNodeId, sourceForwardGroup));
-
-            if (sourceForwardGroup.isParallelismDecided()) {
-                targetForwardGroup
-                        .getChainedNodeIdMap()
-                        .forEach(
-                                (startNodeId, chainedNodeIds) -> {
-                                    chainedNodeIds.stream()
-                                            .map(streamGraph::getStreamNode)
-                                            .forEach(
-                                                    streamNode -> {
-                                                        streamNode.setParallelism(
-                                                                sourceForwardGroup.getParallelism(),
-                                                                true);
-                                                    });
-                                });
-            }
-
-            if (sourceForwardGroup.isMaxParallelismDecided()) {
-                targetForwardGroup
-                        .getChainedNodeIdMap()
-                        .forEach(
-                                (startNodeId, chainedNodeIds) -> {
-                                    chainedNodeIds.stream()
-                                            .map(streamGraph::getStreamNode)
-                                            .forEach(
-                                                    streamNode -> {
-                                                        streamNode.setMaxParallelism(
-                                                                sourceForwardGroup
-                                                                        .getMaxParallelism());
-                                                    });
-                                });
-            }
-            return true;
+    private void mergeForwardGroups(Integer sourceNodeId, Integer targetNodeId) {
+        StreamNodeForwardGroup sourceForwardGroup =
+                forwardGroupsByStartNodeIdCache.get(sourceNodeId);
+        StreamNodeForwardGroup targetForwardGroup =
+                forwardGroupsByStartNodeIdCache.get(targetNodeId);
+        if (sourceForwardGroup == null || targetForwardGroup == null) {
+            return;
         }
-        return false;
+
+        sourceForwardGroup.mergeForwardGroup(targetForwardGroup);
+
+        targetForwardGroup
+                .getStartNodeIds()
+                .forEach(
+                        startNodeId ->
+                                forwardGroupsByStartNodeIdCache.put(
+                                        startNodeId, sourceForwardGroup));
+
+        if (sourceForwardGroup.isParallelismDecided()) {
+            targetForwardGroup
+                    .getChainedNodeIdMap()
+                    .forEach(
+                            (startNodeId, chainedNodeIds) -> {
+                                chainedNodeIds.stream()
+                                        .map(streamGraph::getStreamNode)
+                                        .forEach(
+                                                streamNode -> {
+                                                    streamNode.setParallelism(
+                                                            sourceForwardGroup.getParallelism(),
+                                                            true);
+                                                });
+                            });
+        }
+
+        if (sourceForwardGroup.isMaxParallelismDecided()) {
+            targetForwardGroup
+                    .getChainedNodeIdMap()
+                    .forEach(
+                            (startNodeId, chainedNodeIds) -> {
+                                chainedNodeIds.stream()
+                                        .map(streamGraph::getStreamNode)
+                                        .forEach(
+                                                streamNode -> {
+                                                    streamNode.setMaxParallelism(
+                                                            sourceForwardGroup.getMaxParallelism());
+                                                });
+                            });
+        }
     }
 
     private StreamEdge getStreamEdge(Integer sourceId, Integer targetId, String edgeId) {
