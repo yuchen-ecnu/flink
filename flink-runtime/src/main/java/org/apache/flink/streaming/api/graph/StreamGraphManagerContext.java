@@ -20,6 +20,7 @@ package org.apache.flink.streaming.api.graph;
 
 import org.apache.flink.runtime.jobgraph.forwardgroup.StreamNodeForwardGroup;
 import org.apache.flink.streaming.runtime.partitioner.ForwardPartitioner;
+import org.apache.flink.streaming.runtime.partitioner.RescalePartitioner;
 import org.apache.flink.streaming.runtime.partitioner.StreamPartitioner;
 
 import java.util.Map;
@@ -60,10 +61,10 @@ public class StreamGraphManagerContext {
             if (targetEdge.getPartitioner() instanceof ForwardPartitioner) {
                 return false;
             }
-            if (streamGraph.isDynamic()
-                    && newPartitioner instanceof ForwardPartitioner
-                    && !mergeForwardGroups(sourceNodeId, targetNodeId)) {
-                return false;
+            if (streamGraph.isDynamic() && newPartitioner instanceof ForwardPartitioner) {
+                if (!mergeForwardGroups(sourceNodeId, targetNodeId)) {
+                    newPartitioner = new RescalePartitioner<>();
+                }
             }
             targetEdge.setPartitioner(newPartitioner);
             Integer startNodeId = frozenNodeToStartNodeMap.get(sourceNodeId);
