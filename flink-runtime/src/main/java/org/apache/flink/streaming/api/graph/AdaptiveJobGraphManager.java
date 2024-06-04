@@ -262,6 +262,11 @@ public class AdaptiveJobGraphManager implements AdaptiveJobGraphGenerator, JobVe
         return chainInfos.get(startNodeId).getTransitiveOutEdges();
     }
 
+    public StreamNodeForwardGroup findForwardGroupByVertexId(JobVertexID jobVertexId) {
+        Integer startNodeId = jobVertexToStartNodeMap.get(jobVertexId);
+        return forwardGroupsByStartNodeIdCache.get(startNodeId);
+    }
+
     private List<StreamNode> validateStreamNodes(List<StreamNode> streamNodes) {
         List<StreamNode> validatedStreamNodes = new ArrayList<>();
         for (StreamNode streamNode : streamNodes) {
