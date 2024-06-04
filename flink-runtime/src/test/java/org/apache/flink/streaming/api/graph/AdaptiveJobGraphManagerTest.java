@@ -218,7 +218,7 @@ class AdaptiveJobGraphManagerTest {
             adaptiveJobGraphGenerator.initializeJobGraph();
 
             assertThat(adaptiveJobGraphGenerator.isStreamGraphConversionFinished()).isEqualTo(true);
-            assertThat(adaptiveJobGraphGenerator.getJobGraph().getNumberOfVertices()).isEqualTo(3);
+            assertThat(adaptiveJobGraphGenerator.getJobGraph().getNumberOfVertices()).isEqualTo(2);
 
         } finally {
             serializationExecutor.shutdown();
@@ -299,7 +299,7 @@ class AdaptiveJobGraphManagerTest {
                         adaptiveJobGraphGenerator.createJobVerticesAndUpdateGraph(streamNodes));
             }
             assertThat(adaptiveJobGraphGenerator.isStreamGraphConversionFinished()).isEqualTo(true);
-            assertThat(adaptiveJobGraphGenerator.getJobGraph().getNumberOfVertices()).isEqualTo(3);
+            assertThat(adaptiveJobGraphGenerator.getJobGraph().getNumberOfVertices()).isEqualTo(2);
 
         } finally {
             serializationExecutor.shutdown();
@@ -329,7 +329,7 @@ class AdaptiveJobGraphManagerTest {
                                 mapDataStream.getTransformation(),
                                 new RescalePartitioner<>(),
                                 StreamExchangeMode.PIPELINED));
-        partitionAfterMapDataStream.print().setParallelism(-1);
+        partitionAfterMapDataStream.print().setParallelism(1);
 
         StreamGraph streamGraph = env.getStreamGraph();
 
@@ -373,7 +373,9 @@ class AdaptiveJobGraphManagerTest {
             assertThat(
                             adaptiveJobGraphGenerator.updateStreamGraph(
                                     context ->
-                                            context.modifyStreamEdge(streamEdgeUpdateRequestInfo)))
+                                            context.modifyStreamEdge(
+                                                    Collections.singletonList(
+                                                            streamEdgeUpdateRequestInfo))))
                     .isEqualTo(true);
             jobVertices.addAll(
                     adaptiveJobGraphGenerator.createJobVerticesAndUpdateGraph(streamNodes));
