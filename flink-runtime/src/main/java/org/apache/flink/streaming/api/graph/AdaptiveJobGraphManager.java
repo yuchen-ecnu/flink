@@ -143,7 +143,7 @@ public class AdaptiveJobGraphManager implements AdaptiveJobGraphGenerator, JobVe
 
     private final GenerateMode generateMode;
 
-    private final Map<Integer, StreamNodeForwardGroup> forwardGroupsByStartNodeIdCache;
+    private final Map<Integer, StreamNodeForwardGroup> forwardGroupsByEndpointNodeIdCache;
 
     private final StreamGraphManagerContext streamGraphManagerContext;
 
@@ -176,7 +176,7 @@ public class AdaptiveJobGraphManager implements AdaptiveJobGraphGenerator, JobVe
         this.hasHybridResultPartition = new AtomicBoolean(false);
         this.opIntermediateOutputsCaches = new HashMap<>();
         this.jobVertexToStartNodeMap = new HashMap<>();
-        this.forwardGroupsByStartNodeIdCache = new HashMap<>();
+        this.forwardGroupsByEndpointNodeIdCache = new HashMap<>();
 
         this.jobGraph = new JobGraph(streamGraph.getJobId(), streamGraph.getJobName());
 
@@ -193,7 +193,7 @@ public class AdaptiveJobGraphManager implements AdaptiveJobGraphGenerator, JobVe
 
         this.streamGraphManagerContext =
                 new StreamGraphManagerContext(
-                        forwardGroupsByStartNodeIdCache,
+                        forwardGroupsByEndpointNodeIdCache,
                         streamGraph,
                         frozenNodeToStartNodeMap,
                         opIntermediateOutputsCaches);
@@ -264,7 +264,7 @@ public class AdaptiveJobGraphManager implements AdaptiveJobGraphGenerator, JobVe
 
     public StreamNodeForwardGroup findForwardGroupByVertexId(JobVertexID jobVertexId) {
         Integer startNodeId = jobVertexToStartNodeMap.get(jobVertexId);
-        return forwardGroupsByStartNodeIdCache.get(startNodeId);
+        return forwardGroupsByEndpointNodeIdCache.get(startNodeId);
     }
 
     private List<StreamNode> validateStreamNodes(List<StreamNode> streamNodes) {
@@ -429,14 +429,24 @@ public class AdaptiveJobGraphManager implements AdaptiveJobGraphGenerator, JobVe
                         chainedStreamNodesMap::get,
                         streamGraph);
 
-        this.forwardGroupsByStartNodeIdCache.putAll(forwardGroupsByStartNodeId);
+        forwardGroupsByStartNodeId.forEach(
+                (startNodeId, forwardGroup) -> {
+                    this.forwardGroupsByEndpointNodeIdCache.put(startNodeId, forwardGroup);
+                    transitiveOutEdgesMap
+                            .get(startNodeId)
+                            .forEach(
+                                    streamEdge -> {
+                                        this.forwardGroupsByEndpointNodeIdCache.put(
+                                                streamEdge.getSourceId(), forwardGroup);
+                                    });
+                });
 
         chainedStreamNodesMap.forEach(this::setNodeParallelism);
     }
 
     private void setNodeParallelism(Integer startNodeId, List<StreamNode> chainedStreamNodes) {
         StreamNodeForwardGroup streamNodeForwardGroup =
-                forwardGroupsByStartNodeIdCache.get(startNodeId);
+                forwardGroupsByEndpointNodeIdCache.get(startNodeId);
         // set parallelism for vertices in forward group
         if (streamNodeForwardGroup != null && streamNodeForwardGroup.isParallelismDecided()) {
             chainedStreamNodes.forEach(

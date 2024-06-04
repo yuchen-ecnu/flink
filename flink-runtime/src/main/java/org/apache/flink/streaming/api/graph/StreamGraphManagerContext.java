@@ -116,6 +116,10 @@ public class StreamGraphManagerContext {
             mergeForwardGroups(sourceNodeId, targetNodeId);
         }
         targetEdge.setPartitioner(newPartitioner);
+        LOG.info(
+                "The partitioner of StreamEdge with Id {} has been set to {}.",
+                targetEdge.getId(),
+                newPartitioner.getClass());
         Map<StreamEdge, NonChainedOutput> opIntermediateOutputs =
                 opIntermediateOutputsCaches.get(sourceNodeId);
         NonChainedOutput output =
