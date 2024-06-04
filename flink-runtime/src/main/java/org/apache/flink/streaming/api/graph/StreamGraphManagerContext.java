@@ -23,10 +23,15 @@ import org.apache.flink.streaming.runtime.partitioner.ForwardPartitioner;
 import org.apache.flink.streaming.runtime.partitioner.RescalePartitioner;
 import org.apache.flink.streaming.runtime.partitioner.StreamPartitioner;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.List;
 import java.util.Map;
 
 public class StreamGraphManagerContext {
+    private static final Logger LOG = LoggerFactory.getLogger(StreamGraphManagerContext.class);
+
     private final StreamGraph streamGraph;
     private final Map<Integer, StreamNodeForwardGroup> forwardGroupsByStartNodeIdCache;
     private final Map<Integer, Integer> frozenNodeToStartNodeMap;
@@ -92,6 +97,9 @@ public class StreamGraphManagerContext {
                     && newPartitioner instanceof ForwardPartitioner
                     && !canMergeForwardGroups(sourceNodeId, targetNodeId)) {
                 requestInfo.outputPartitioner(new RescalePartitioner<>());
+                LOG.info(
+                        "The ForwardPartitioner of StreamEdge with Id {} has been rolled back to RescalePartitioner.",
+                        requestInfo.getEdgeId());
             }
         }
         return true;
@@ -108,11 +116,10 @@ public class StreamGraphManagerContext {
             mergeForwardGroups(sourceNodeId, targetNodeId);
         }
         targetEdge.setPartitioner(newPartitioner);
-        Integer startNodeId = frozenNodeToStartNodeMap.get(sourceNodeId);
+        Map<StreamEdge, NonChainedOutput> opIntermediateOutputs =
+                opIntermediateOutputsCaches.get(sourceNodeId);
         NonChainedOutput output =
-                (startNodeId != null)
-                        ? opIntermediateOutputsCaches.get(startNodeId).get(targetEdge)
-                        : null;
+                opIntermediateOutputs != null ? opIntermediateOutputs.get(targetEdge) : null;
         if (output != null) {
             output.setPartitioner(newPartitioner);
         }
