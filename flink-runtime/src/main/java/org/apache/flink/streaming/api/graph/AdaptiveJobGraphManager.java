@@ -59,6 +59,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -749,11 +750,7 @@ public class AdaptiveJobGraphManager implements AdaptiveJobGraphGenerator, JobVe
             Map<Integer, List<StreamEdge>> nonChainableInputsCache) {
         final Map<Integer, OperatorChainInfo> chainEntryPoints =
                 buildChainedInputsAndGetHeadInputs(streamNodes, nonChainableOutputsCache);
-        final List<OperatorChainInfo> chainInfos =
-                chainEntryPoints.entrySet().stream()
-                        .sorted(Map.Entry.comparingByKey())
-                        .map(Map.Entry::getValue)
-                        .collect(Collectors.toList());
+        final List<OperatorChainInfo> chainInfos = new ArrayList<>(chainEntryPoints.values());
         for (OperatorChainInfo info : chainInfos) {
             generateOperatorChainInfo(
                     info.getStartNodeId(),
@@ -767,7 +764,7 @@ public class AdaptiveJobGraphManager implements AdaptiveJobGraphGenerator, JobVe
 
     private Map<Integer, OperatorChainInfo> buildChainedInputsAndGetHeadInputs(
             List<StreamNode> streamNodes, Map<Integer, List<StreamEdge>> nonChainableOutputsCache) {
-        final Map<Integer, OperatorChainInfo> chainEntryPoints = new LinkedHashMap<>();
+        final Map<Integer, OperatorChainInfo> chainEntryPoints = new TreeMap<>();
         for (StreamNode streamNode : streamNodes) {
             // TODO: process source chain for multi-input
             int sourceNodeId = streamNode.getId();
