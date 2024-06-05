@@ -112,20 +112,26 @@ public class StreamGraphManagerContext {
         }
         Integer sourceNodeId = targetEdge.getSourceId();
         Integer targetNodeId = targetEdge.getTargetId();
-        if (streamGraph.isDynamic() && newPartitioner instanceof ForwardPartitioner) {
+        if (newPartitioner instanceof ForwardPartitioner
+                && !StreamingJobGraphGenerator.isChainable(targetEdge, streamGraph)) {
+            targetEdge.setPartitioner(new RescalePartitioner<>());
+        } else {
+            targetEdge.setPartitioner(newPartitioner);
+        }
+        LOG.info(
+                "The partitioner of StreamEdge with Id {} expects set to be {} and is finally set to {}.",
+                targetEdge.getId(),
+                newPartitioner.getClass(),
+                targetEdge.getPartitioner().getClass());
+        if (streamGraph.isDynamic() && targetEdge.getPartitioner() instanceof ForwardPartitioner) {
             mergeForwardGroups(sourceNodeId, targetNodeId);
         }
-        targetEdge.setPartitioner(newPartitioner);
-        LOG.info(
-                "The partitioner of StreamEdge with Id {} has been set to {}.",
-                targetEdge.getId(),
-                newPartitioner.getClass());
         Map<StreamEdge, NonChainedOutput> opIntermediateOutputs =
                 opIntermediateOutputsCaches.get(sourceNodeId);
         NonChainedOutput output =
                 opIntermediateOutputs != null ? opIntermediateOutputs.get(targetEdge) : null;
         if (output != null) {
-            output.setPartitioner(newPartitioner);
+            output.setPartitioner(targetEdge.getPartitioner());
         }
     }
 
