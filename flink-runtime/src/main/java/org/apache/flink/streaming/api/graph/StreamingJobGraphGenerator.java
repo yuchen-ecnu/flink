@@ -297,7 +297,10 @@ public class StreamingJobGraphGenerator {
         }
         jobGraph.setJobConfiguration(streamGraph.getJobConfiguration());
 
-        addVertexIndexPrefixInVertexName(streamGraph, jobGraph);
+        if (streamGraph.isVertexNameIncludeIndexPrefix()) {
+            addVertexIndexPrefixInVertexName(
+                    jobGraph.getVerticesSortedTopologicallyFromSources(), new AtomicInteger(0));
+        }
 
         setVertexDescription(jobVertices, streamGraph, chainedConfigs);
 
@@ -344,19 +347,13 @@ public class StreamingJobGraphGenerator {
     }
 
     public static void addVertexIndexPrefixInVertexName(
-            StreamGraph streamGraph, JobGraph jobGraph) {
-        if (!streamGraph.isVertexNameIncludeIndexPrefix()) {
-            return;
-        }
-        final AtomicInteger vertexIndexId = new AtomicInteger(0);
-        jobGraph.getVerticesSortedTopologicallyFromSources()
-                .forEach(
-                        vertex ->
-                                vertex.setName(
-                                        String.format(
-                                                "[vertex-%d]%s",
-                                                vertexIndexId.getAndIncrement(),
-                                                vertex.getName())));
+            List<JobVertex> jobVertices, AtomicInteger vertexIndexId) {
+        jobVertices.forEach(
+                vertex ->
+                        vertex.setName(
+                                String.format(
+                                        "[vertex-%d]%s",
+                                        vertexIndexId.getAndIncrement(), vertex.getName())));
     }
 
     public static void setVertexDescription(

@@ -63,6 +63,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -147,6 +148,8 @@ public class AdaptiveJobGraphManager implements AdaptiveJobGraphGenerator, JobVe
 
     private final StreamGraphManagerContext streamGraphManagerContext;
 
+    private final AtomicInteger vertexIndexId;
+
     @VisibleForTesting
     public AdaptiveJobGraphManager(
             ClassLoader userClassloader,
@@ -197,6 +200,8 @@ public class AdaptiveJobGraphManager implements AdaptiveJobGraphGenerator, JobVe
                         streamGraph,
                         frozenNodeToStartNodeMap,
                         opIntermediateOutputsCaches);
+
+        this.vertexIndexId = new AtomicInteger(0);
     }
 
     @Override
@@ -541,8 +546,9 @@ public class AdaptiveJobGraphManager implements AdaptiveJobGraphGenerator, JobVe
                 id -> streamGraph.getStreamNode(id).getManagedMemoryOperatorScopeUseCaseWeights(),
                 id -> streamGraph.getStreamNode(id).getManagedMemorySlotScopeUseCases());
 
-        // TODO： generate name via JobVertex rather than through JobGraph.
-        addVertexIndexPrefixInVertexName(streamGraph, jobGraph);
+        if (streamGraph.isVertexNameIncludeIndexPrefix()) {
+            addVertexIndexPrefixInVertexName(new ArrayList<>(jobVertices.values()), vertexIndexId);
+        }
         setVertexDescription(jobVertices, streamGraph, chainedConfigs);
         try {
             FutureUtils.combineAll(
