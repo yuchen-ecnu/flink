@@ -803,10 +803,11 @@ public class AdaptiveJobGraphManager implements AdaptiveJobGraphGenerator, JobVe
         for (StreamNode streamNode : streamNodes) {
             // TODO: process source chain for multi-input
             int sourceNodeId = streamNode.getId();
-            final int startNodeId;
-
             // Generate hashes immediately for all head nodes to avoid the problem of non-existent
             // hash of the front node in the source chain.
+            if (pendingSourceChainInfos.containsKey(sourceNodeId)) {
+                continue;
+            }
             Preconditions.checkState(
                     generateHashesByStreamNode(streamNode),
                     "Failed to generate hash for streamNode with ID '%s'",
@@ -814,7 +815,7 @@ public class AdaptiveJobGraphManager implements AdaptiveJobGraphGenerator, JobVe
             OperatorChainInfo chainInfo;
             if (isSourceChainable(streamNode)) {
                 final StreamEdge sourceOutEdge = streamNode.getOutEdges().get(0);
-                startNodeId = sourceOutEdge.getTargetId();
+                final Integer startNodeId = sourceOutEdge.getTargetId();
                 final SourceOperatorFactory<?> sourceOpFact =
                         (SourceOperatorFactory<?>) streamNode.getOperatorFactory();
 
@@ -835,37 +836,39 @@ public class AdaptiveJobGraphManager implements AdaptiveJobGraphGenerator, JobVe
                         sourceNodeId, new ChainedSourceInfo(operatorConfig, inputConfig));
                 chainInfo.recordChainedNode(sourceNodeId);
                 chainInfo.addCoordinatorProvider(coordinatorProvider);
-                if (!isReadyToChain(startNodeId)) {
-                    LOG.info(
-                            "ChainInfo with startNodeId {} has been placed in the pending queue.",
-                            startNodeId);
-                    continue;
-                }
-                LOG.info(
-                        "ChainInfo with startNodeId {} has been removed from the pending queue.",
-                        startNodeId);
 
-                chainInfo
-                        .getChainedSources()
-                        .forEach(
-                                (streamNodeId, ignored) -> {
-                                    // we cache the outputs here, and set the config later
-                                    opChainableOutputsCaches
-                                            .computeIfAbsent(
-                                                    startNodeId, k -> new LinkedHashMap<>())
-                                            .put(
-                                                    streamNodeId,
-                                                    Collections.singletonList(sourceOutEdge));
-                                    nonChainableOutputsCache.put(
-                                            streamNodeId, Collections.emptyList());
-                                });
-                pendingSourceChainInfos.remove(startNodeId);
+                // we cache the outputs here, and set the config later
+                opChainableOutputsCaches
+                        .computeIfAbsent(startNodeId, k -> new LinkedHashMap<>())
+                        .put(sourceNodeId, Collections.singletonList(sourceOutEdge));
             } else {
-                startNodeId = streamNode.getId();
                 chainInfo = new OperatorChainInfo(sourceNodeId, streamGraph);
+                chainEntryPoints.put(sourceNodeId, chainInfo);
             }
-            chainEntryPoints.put(startNodeId, chainInfo);
         }
+
+        pendingSourceChainInfos
+                .entrySet()
+                .removeIf(
+                        entry -> {
+                            Integer startNodeId = entry.getKey();
+                            if (!isReadyToChain(startNodeId)) {
+                                return false;
+                            }
+                            OperatorChainInfo chainInfo = entry.getValue();
+                            chainInfo
+                                    .getChainedSources()
+                                    .forEach(
+                                            (streamNodeId, ignored) ->
+                                                    nonChainableOutputsCache.put(
+                                                            streamNodeId, Collections.emptyList()));
+                            LOG.info(
+                                    "ChainInfo with startNodeId {} has been removed from the pending queue.",
+                                    startNodeId);
+                            chainEntryPoints.put(startNodeId, chainInfo);
+                            return true;
+                        });
+
         return chainEntryPoints;
     }
 
