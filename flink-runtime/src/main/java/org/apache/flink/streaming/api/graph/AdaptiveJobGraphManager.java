@@ -803,7 +803,7 @@ public class AdaptiveJobGraphManager implements AdaptiveJobGraphGenerator, JobVe
         for (StreamNode streamNode : streamNodes) {
             // TODO: process source chain for multi-input
             int sourceNodeId = streamNode.getId();
-            int startNodeId = streamNode.getId();
+            final int startNodeId;
 
             // Generate hashes immediately for all head nodes to avoid the problem of non-existent
             // hash of the front node in the source chain.
@@ -815,12 +815,6 @@ public class AdaptiveJobGraphManager implements AdaptiveJobGraphGenerator, JobVe
             if (isSourceChainable(streamNode)) {
                 final StreamEdge sourceOutEdge = streamNode.getOutEdges().get(0);
                 startNodeId = sourceOutEdge.getTargetId();
-                // we cache the outputs here, and set the config later
-                opChainableOutputsCaches
-                        .computeIfAbsent(startNodeId, k -> new LinkedHashMap<>())
-                        .put(sourceNodeId, Collections.singletonList(sourceOutEdge));
-                nonChainableOutputsCache.put(sourceNodeId, Collections.emptyList());
-
                 final SourceOperatorFactory<?> sourceOpFact =
                         (SourceOperatorFactory<?>) streamNode.getOperatorFactory();
 
@@ -831,9 +825,7 @@ public class AdaptiveJobGraphManager implements AdaptiveJobGraphGenerator, JobVe
                 chainInfo =
                         pendingSourceChainInfos.computeIfAbsent(
                                 startNodeId,
-                                ignored ->
-                                        new OperatorChainInfo(
-                                                sourceOutEdge.getTargetId(), streamGraph));
+                                ignored -> new OperatorChainInfo(startNodeId, streamGraph));
                 final StreamConfig operatorConfig = new StreamConfig(new Configuration());
                 final StreamConfig.SourceInputConfig inputConfig =
                         new StreamConfig.SourceInputConfig(sourceOutEdge);
@@ -852,8 +844,24 @@ public class AdaptiveJobGraphManager implements AdaptiveJobGraphGenerator, JobVe
                 LOG.info(
                         "ChainInfo with startNodeId {} has been removed from the pending queue.",
                         startNodeId);
+
+                chainInfo
+                        .getChainedSources()
+                        .forEach(
+                                (streamNodeId, ignored) -> {
+                                    // we cache the outputs here, and set the config later
+                                    opChainableOutputsCaches
+                                            .computeIfAbsent(
+                                                    startNodeId, k -> new LinkedHashMap<>())
+                                            .put(
+                                                    streamNodeId,
+                                                    Collections.singletonList(sourceOutEdge));
+                                    nonChainableOutputsCache.put(
+                                            streamNodeId, Collections.emptyList());
+                                });
                 pendingSourceChainInfos.remove(startNodeId);
             } else {
+                startNodeId = streamNode.getId();
                 chainInfo = new OperatorChainInfo(sourceNodeId, streamGraph);
             }
             chainEntryPoints.put(startNodeId, chainInfo);
