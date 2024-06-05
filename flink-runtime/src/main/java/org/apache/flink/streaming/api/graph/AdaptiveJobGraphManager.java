@@ -160,6 +160,8 @@ public class AdaptiveJobGraphManager implements AdaptiveJobGraphGenerator, JobVe
 
     private final Map<String, Tuple2<SlotSharingGroup, CoLocationGroupImpl>> coLocationGroups;
 
+    private final Map<Integer, OperatorChainInfo> pendingSourceChainInfos;
+
     @VisibleForTesting
     public AdaptiveJobGraphManager(
             ClassLoader userClassloader,
@@ -220,6 +222,7 @@ public class AdaptiveJobGraphManager implements AdaptiveJobGraphGenerator, JobVe
 
         this.vertexRegionSlotSharingGroups = new HashMap<>();
         this.coLocationGroups = new HashMap<>();
+        this.pendingSourceChainInfos = new HashMap<>();
     }
 
     @Override
@@ -800,6 +803,7 @@ public class AdaptiveJobGraphManager implements AdaptiveJobGraphGenerator, JobVe
         for (StreamNode streamNode : streamNodes) {
             // TODO: process source chain for multi-input
             int sourceNodeId = streamNode.getId();
+            int startNodeId = streamNode.getId();
 
             // Generate hashes immediately for all head nodes to avoid the problem of non-existent
             // hash of the front node in the source chain.
@@ -807,11 +811,13 @@ public class AdaptiveJobGraphManager implements AdaptiveJobGraphGenerator, JobVe
                     generateHashesByStreamNode(streamNode),
                     "Failed to generate hash for streamNode with ID '%s'",
                     sourceNodeId);
+            OperatorChainInfo chainInfo;
             if (isSourceChainable(streamNode)) {
                 final StreamEdge sourceOutEdge = streamNode.getOutEdges().get(0);
+                startNodeId = sourceOutEdge.getTargetId();
                 // we cache the outputs here, and set the config later
                 opChainableOutputsCaches
-                        .computeIfAbsent(sourceOutEdge.getTargetId(), k -> new LinkedHashMap<>())
+                        .computeIfAbsent(startNodeId, k -> new LinkedHashMap<>())
                         .put(sourceNodeId, Collections.singletonList(sourceOutEdge));
                 nonChainableOutputsCache.put(sourceNodeId, Collections.emptyList());
 
@@ -822,10 +828,9 @@ public class AdaptiveJobGraphManager implements AdaptiveJobGraphGenerator, JobVe
                         sourceOpFact.getCoordinatorProvider(
                                 streamNode.getOperatorName(),
                                 new OperatorID(hashes.get(streamNode.getId())));
-
-                final OperatorChainInfo chainInfo =
-                        chainEntryPoints.computeIfAbsent(
-                                sourceOutEdge.getTargetId(),
+                chainInfo =
+                        pendingSourceChainInfos.computeIfAbsent(
+                                startNodeId,
                                 ignored ->
                                         new OperatorChainInfo(
                                                 sourceOutEdge.getTargetId(), streamGraph));
@@ -838,9 +843,20 @@ public class AdaptiveJobGraphManager implements AdaptiveJobGraphGenerator, JobVe
                         sourceNodeId, new ChainedSourceInfo(operatorConfig, inputConfig));
                 chainInfo.recordChainedNode(sourceNodeId);
                 chainInfo.addCoordinatorProvider(coordinatorProvider);
-                continue;
+                if (!isReadyToChain(startNodeId)) {
+                    LOG.info(
+                            "ChainInfo with startNodeId {} has been placed in the pending queue.",
+                            startNodeId);
+                    continue;
+                }
+                LOG.info(
+                        "ChainInfo with startNodeId {} has been removed from the pending queue.",
+                        startNodeId);
+                pendingSourceChainInfos.remove(startNodeId);
+            } else {
+                chainInfo = new OperatorChainInfo(sourceNodeId, streamGraph);
             }
-            chainEntryPoints.put(sourceNodeId, new OperatorChainInfo(sourceNodeId, streamGraph));
+            chainEntryPoints.put(startNodeId, chainInfo);
         }
         return chainEntryPoints;
     }
