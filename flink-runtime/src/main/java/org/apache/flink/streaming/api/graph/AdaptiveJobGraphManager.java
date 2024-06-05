@@ -32,6 +32,8 @@ import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobgraph.forwardgroup.StreamNodeForwardGroup;
+import org.apache.flink.runtime.jobmanager.scheduler.CoLocationGroupImpl;
+import org.apache.flink.runtime.jobmanager.scheduler.SlotSharingGroup;
 import org.apache.flink.runtime.operators.coordination.OperatorCoordinator;
 import org.apache.flink.runtime.operators.util.TaskConfig;
 import org.apache.flink.streaming.api.operators.ChainingStrategy;
@@ -79,11 +81,12 @@ import static org.apache.flink.streaming.api.graph.StreamingJobGraphGenerator.is
 import static org.apache.flink.streaming.api.graph.StreamingJobGraphGenerator.markSupportingConcurrentExecutionAttempts;
 import static org.apache.flink.streaming.api.graph.StreamingJobGraphGenerator.preValidate;
 import static org.apache.flink.streaming.api.graph.StreamingJobGraphGenerator.setAllOperatorNonChainedOutputsConfigs;
+import static org.apache.flink.streaming.api.graph.StreamingJobGraphGenerator.setCoLocation;
 import static org.apache.flink.streaming.api.graph.StreamingJobGraphGenerator.setManagedMemoryFraction;
 import static org.apache.flink.streaming.api.graph.StreamingJobGraphGenerator.setOperatorChainedOutputsConfig;
 import static org.apache.flink.streaming.api.graph.StreamingJobGraphGenerator.setOperatorConfig;
 import static org.apache.flink.streaming.api.graph.StreamingJobGraphGenerator.setPhysicalEdges;
-import static org.apache.flink.streaming.api.graph.StreamingJobGraphGenerator.setSlotSharingAndCoLocation;
+import static org.apache.flink.streaming.api.graph.StreamingJobGraphGenerator.setSlotSharing;
 import static org.apache.flink.streaming.api.graph.StreamingJobGraphGenerator.setVertexDescription;
 import static org.apache.flink.streaming.api.graph.StreamingJobGraphGenerator.tryConvertPartitionerForDynamicGraph;
 import static org.apache.flink.streaming.api.graph.StreamingJobGraphGenerator.validateHybridShuffleExecuteInBatchMode;
@@ -151,6 +154,12 @@ public class AdaptiveJobGraphManager implements AdaptiveJobGraphGenerator, JobVe
 
     private final AtomicInteger vertexIndexId;
 
+    private final SlotSharingGroup defaultSlotSharingGroup;
+
+    private final Map<JobVertexID, SlotSharingGroup> vertexRegionSlotSharingGroups;
+
+    private final Map<String, Tuple2<SlotSharingGroup, CoLocationGroupImpl>> coLocationGroups;
+
     @VisibleForTesting
     public AdaptiveJobGraphManager(
             ClassLoader userClassloader,
@@ -203,6 +212,14 @@ public class AdaptiveJobGraphManager implements AdaptiveJobGraphGenerator, JobVe
                         opIntermediateOutputsCaches);
 
         this.vertexIndexId = new AtomicInteger(0);
+
+        this.defaultSlotSharingGroup = new SlotSharingGroup();
+        streamGraph
+                .getSlotSharingGroupResource(StreamGraphGenerator.DEFAULT_SLOT_SHARING_GROUP)
+                .ifPresent(defaultSlotSharingGroup::setResourceProfile);
+
+        this.vertexRegionSlotSharingGroups = new HashMap<>();
+        this.coLocationGroups = new HashMap<>();
     }
 
     @Override
@@ -541,7 +558,7 @@ public class AdaptiveJobGraphManager implements AdaptiveJobGraphGenerator, JobVe
         setSlotSharingAndCoLocation(jobVertices, hasHybridResultPartition, streamGraph, jobGraph);
 
         setManagedMemoryFraction(
-                Collections.unmodifiableMap(jobVertices),
+                Collections.unmodifiableMap(jobVerticesCache),
                 Collections.unmodifiableMap(vertexConfigs),
                 Collections.unmodifiableMap(chainedConfigs),
                 id -> streamGraph.getStreamNode(id).getManagedMemoryOperatorScopeUseCaseWeights(),
@@ -569,6 +586,21 @@ public class AdaptiveJobGraphManager implements AdaptiveJobGraphGenerator, JobVe
         if (!streamGraph.getJobStatusHooks().isEmpty()) {
             jobGraph.setJobStatusHooks(streamGraph.getJobStatusHooks());
         }
+    }
+
+    private void setSlotSharingAndCoLocation(
+            Map<Integer, JobVertex> jobVertices,
+            AtomicBoolean hasHybridResultPartition,
+            StreamGraph streamGraph,
+            JobGraph jobGraph) {
+        setSlotSharing(
+                jobVertices,
+                hasHybridResultPartition,
+                streamGraph,
+                jobGraph,
+                defaultSlotSharingGroup,
+                vertexRegionSlotSharingGroups);
+        setCoLocation(jobVertices, streamGraph, coLocationGroups);
     }
 
     private void waitForSerializationFuturesAndUpdateJobVertices()
