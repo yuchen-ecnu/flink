@@ -264,7 +264,6 @@ public class AdaptiveJobGraphManager implements AdaptiveJobGraphGenerator, JobVe
     public List<JobVertex> createJobVerticesAndUpdateGraph(List<StreamNode> streamNodes) {
         Map<Integer, List<StreamEdge>> nonChainableOutputsCache = new LinkedHashMap<>();
         Map<Integer, List<StreamEdge>> nonChainedInputsCache = new LinkedHashMap<>();
-        List<StreamNode> validatedStreamNodes = validateStreamNodes(streamNodes);
 
         Map<Integer, OperatorChainInfo> chainInfos =
                 createOperatorChainInfos(
