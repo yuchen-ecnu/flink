@@ -125,6 +125,7 @@ public class StreamNodeForwardGroup {
             return;
         }
         this.startNodeIds.addAll(forwardGroup.getStartNodeIds());
+        this.chainedNodeIdMap.putAll(forwardGroup.getChainedNodeIdMap());
     }
 
     public static Map<Integer, StreamNodeForwardGroup> computeForwardGroup(

@@ -46,7 +46,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
@@ -68,7 +67,7 @@ public class DefaultAdaptiveExecutionHandler implements AdaptiveExecutionHandler
 
     private final AdaptiveJobGraphManager jobGraphManager;
 
-    private Function<Integer, OperatorID> findOperatorIdByStreamNodeId;
+    private final Function<Integer, OperatorID> findOperatorIdByStreamNodeId;
 
     private final Set<Integer> updatedStreamNodeIds = new HashSet<>();
 
@@ -116,6 +115,15 @@ public class DefaultAdaptiveExecutionHandler implements AdaptiveExecutionHandler
         }
     }
 
+    private void tryUpdateJobGraph(JobVertexID jobVertexId) throws Exception {
+        List<JobVertex> newlyCreatedJobVertices =
+                jobGraphManager.onJobVertexFinishedAndUpdateGraph(jobVertexId);
+
+        if (!newlyCreatedJobVertices.isEmpty()) {
+            notifyJobGraphUpdated(newlyCreatedJobVertices);
+        }
+    }
+
     private boolean enableAdaptiveJoinType() {
         return configuration.get(BatchExecutionOptions.ADAPTIVE_JOIN_TYPE_ENABLED);
     }
@@ -132,12 +140,14 @@ public class DefaultAdaptiveExecutionHandler implements AdaptiveExecutionHandler
 
     private void tryTransferToBroadCastJoin(StreamEdge edge) {
         StreamNode node = edge.getTargetNode();
-        if (updatedStreamNodeIds.contains(node.getId())) {
+        if (jobGraphManager.findVertexByStreamNodeId(node.getId()).isPresent()
+                || updatedStreamNodeIds.contains(node.getId())) {
             return;
         }
 
         if (node.getOperatorFactory() instanceof AdaptiveJoin) {
             log.info("Try optimize adaptive join {} to broadcast join.", node);
+
             AdaptiveJoin adaptiveJoin = (AdaptiveJoin) node.getOperatorFactory();
             List<AdaptiveJoin.PotentialBroadcastSide> potentialBroadcastJoinSides =
                     adaptiveJoin.getPotentialBroadcastJoinSides();
@@ -153,15 +163,11 @@ public class DefaultAdaptiveExecutionHandler implements AdaptiveExecutionHandler
 
             long producedBytes = 0L;
             for (StreamEdge inEdge : sameTypeEdges) {
-                if (jobVertexFinishedEvents.containsKey(
-                        jobGraphManager.findVertexByStreamNodeId(inEdge.getSourceId()).get())) {
+                JobVertexID jobVertex =
+                        jobGraphManager.findVertexByStreamNodeId(inEdge.getSourceId()).get();
+                if (jobVertexFinishedEvents.containsKey(jobVertex)) {
                     for (BlockingResultInfo info :
-                            jobVertexFinishedEvents
-                                    .get(
-                                            jobGraphManager
-                                                    .findVertexByStreamNodeId(inEdge.getSourceId())
-                                                    .get())
-                                    .getResultInfo()) {
+                            jobVertexFinishedEvents.get(jobVertex).getResultInfo()) {
                         producedBytes += info.getNumBytesProduced();
                     }
                 } else {
@@ -252,42 +258,6 @@ public class DefaultAdaptiveExecutionHandler implements AdaptiveExecutionHandler
             return AdaptiveJoin.PotentialBroadcastSide.RIGHT;
         } else {
             throw new IllegalArgumentException();
-        }
-    }
-
-    // TODO currently only support Lazily update job graph
-    private void tryUpdateJobGraph(JobVertexID newFinishedJobVertexId) throws Exception {
-        List<StreamEdge> edges = jobGraphManager.findOutputEdgesByVertexId(newFinishedJobVertexId);
-
-        List<StreamNode> tryToTranslate = new ArrayList<>();
-
-        for (StreamEdge edge : edges) {
-            StreamNode downNode = edge.getTargetNode();
-
-            boolean isAllInputVerticesFinished = true;
-            for (StreamEdge inEdge : downNode.getInEdges()) {
-                Optional<JobVertexID> upStreamVertex =
-                        jobGraphManager.findVertexByStreamNodeId(inEdge.getSourceId());
-                if (!upStreamVertex.isPresent()
-                        || !jobVertexFinishedEvents.containsKey(upStreamVertex.get())) {
-                    isAllInputVerticesFinished = false;
-                    break;
-                }
-            }
-
-            if (isAllInputVerticesFinished) {
-                tryToTranslate.add(downNode);
-            }
-        }
-
-        if (tryToTranslate.isEmpty()) {
-            return;
-        }
-
-        List<JobVertex> list = jobGraphManager.createJobVerticesAndUpdateGraph(tryToTranslate);
-
-        if (!list.isEmpty()) {
-            notifyJobGraphUpdated(list);
         }
     }
 

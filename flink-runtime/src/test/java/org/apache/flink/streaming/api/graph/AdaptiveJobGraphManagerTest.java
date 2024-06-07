@@ -1305,7 +1305,8 @@ class AdaptiveJobGraphManagerTest {
         DataStream<Integer> filter = map.filter((x) -> false).name("filter").setParallelism(2);
         iteration.closeWith(filter).print();
 
-        JobGraph jobGraph = generateJobGraphInLazilyMode(env.getStreamGraph());
+        StreamGraph streamGraph = env.getStreamGraph();
+        JobGraph jobGraph = generateJobGraphInLazilyMode(streamGraph);
 
         SlotSharingGroup slotSharingGroup = jobGraph.getVerticesAsArray()[0].getSlotSharingGroup();
         assertThat(slotSharingGroup).isNotNull();
