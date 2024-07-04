@@ -227,6 +227,7 @@ public class CheckpointResourcesCleanupRunner implements JobManagerRunner {
                         "unknown",
                         getJobStatus(jobResult),
                         null,
+                        0,
                         jobResult.getSerializedThrowable().orElse(null),
                         null,
                         initializationTimestamp));

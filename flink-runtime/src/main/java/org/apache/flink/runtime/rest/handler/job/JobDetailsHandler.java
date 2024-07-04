@@ -140,6 +140,7 @@ public class JobDetailsHandler
             jobVerticesPerStateMap.put(
                     executionState, jobVerticesPerState[executionState.ordinal()]);
         }
+        jobVerticesPerStateMap.put(ExecutionState.PENDING, executionGraph.getPendingStreamNodes());
 
         return new JobDetailsInfo(
                 executionGraph.getJobID(),

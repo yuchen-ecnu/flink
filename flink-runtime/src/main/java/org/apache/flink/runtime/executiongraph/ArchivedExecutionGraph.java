@@ -112,6 +112,8 @@ public class ArchivedExecutionGraph implements AccessExecutionGraph, Serializabl
 
     @Nullable private final String changelogStorageName;
 
+    private final int pendingStreamNodes;
+
     public ArchivedExecutionGraph(
             JobID jobID,
             String jobName,
@@ -120,6 +122,7 @@ public class ArchivedExecutionGraph implements AccessExecutionGraph, Serializabl
             long[] stateTimestamps,
             JobStatus state,
             @Nullable JobType jobType,
+            int pendingStreamNodes,
             @Nullable ErrorInfo failureCause,
             String jsonPlan,
             StringifiedAccumulatorResult[] archivedUserAccumulators,
@@ -152,6 +155,7 @@ public class ArchivedExecutionGraph implements AccessExecutionGraph, Serializabl
         this.checkpointStorageName = checkpointStorageName;
         this.stateChangelogEnabled = stateChangelogEnabled;
         this.changelogStorageName = changelogStorageName;
+        this.pendingStreamNodes = pendingStreamNodes;
     }
 
     // --------------------------------------------------------------------------------------------
@@ -179,6 +183,11 @@ public class ArchivedExecutionGraph implements AccessExecutionGraph, Serializabl
     @Override
     public JobType getJobType() {
         return jobType;
+    }
+
+    @Override
+    public int getPendingStreamNodes() {
+        return pendingStreamNodes;
     }
 
     @Nullable
@@ -354,6 +363,7 @@ public class ArchivedExecutionGraph implements AccessExecutionGraph, Serializabl
                 timestamps,
                 statusOverride == null ? executionGraph.getState() : statusOverride,
                 executionGraph.getJobType(),
+                executionGraph.getPendingStreamNodes(),
                 executionGraph.getFailureInfo(),
                 executionGraph.getJsonPlan(),
                 executionGraph.getAccumulatorResultsStringified(),
@@ -368,10 +378,6 @@ public class ArchivedExecutionGraph implements AccessExecutionGraph, Serializabl
                 executionGraph.getChangelogStorageName().orElse(null));
     }
 
-    /**
-     * Create a sparse ArchivedExecutionGraph for a job. Most fields will be empty, only job status
-     * and error-related fields are set.
-     */
     public static ArchivedExecutionGraph createSparseArchivedExecutionGraph(
             JobID jobId,
             String jobName,
@@ -385,6 +391,31 @@ public class ArchivedExecutionGraph implements AccessExecutionGraph, Serializabl
                 jobName,
                 jobStatus,
                 jobType,
+                0,
+                throwable,
+                checkpointingSettings,
+                initializationTimestamp);
+    }
+
+    /**
+     * Create a sparse ArchivedExecutionGraph for a job. Most fields will be empty, only job status
+     * and error-related fields are set.
+     */
+    public static ArchivedExecutionGraph createSparseArchivedExecutionGraph(
+            JobID jobId,
+            String jobName,
+            JobStatus jobStatus,
+            @Nullable JobType jobType,
+            int pendingStreamNodes,
+            @Nullable Throwable throwable,
+            @Nullable JobCheckpointingSettings checkpointingSettings,
+            long initializationTimestamp) {
+        return createSparseArchivedExecutionGraph(
+                jobId,
+                jobName,
+                jobStatus,
+                jobType,
+                pendingStreamNodes,
                 Collections.emptyMap(),
                 Collections.emptyList(),
                 throwable,
@@ -396,6 +427,7 @@ public class ArchivedExecutionGraph implements AccessExecutionGraph, Serializabl
             JobID jobId,
             String jobName,
             JobStatus jobStatus,
+            int pendingStreamNodes,
             JobType jobType,
             @Nullable Throwable throwable,
             @Nullable JobCheckpointingSettings checkpointingSettings,
@@ -427,6 +459,7 @@ public class ArchivedExecutionGraph implements AccessExecutionGraph, Serializabl
                 jobName,
                 jobStatus,
                 jobType,
+                pendingStreamNodes,
                 archivedJobVertices,
                 archivedVerticesInCreationOrder,
                 throwable,
@@ -439,6 +472,7 @@ public class ArchivedExecutionGraph implements AccessExecutionGraph, Serializabl
             String jobName,
             JobStatus jobStatus,
             JobType jobType,
+            int pendingStreamNodes,
             Map<JobVertexID, ArchivedExecutionJobVertex> archivedTasks,
             List<ArchivedExecutionJobVertex> archivedVerticesInCreationOrder,
             @Nullable Throwable throwable,
@@ -471,6 +505,7 @@ public class ArchivedExecutionGraph implements AccessExecutionGraph, Serializabl
                 timestamps,
                 jobStatus,
                 jobType,
+                pendingStreamNodes,
                 failureInfo,
                 jsonPlan,
                 archivedUserAccumulators,

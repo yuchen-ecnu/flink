@@ -41,7 +41,7 @@ public interface AdaptiveExecutionHandler {
      */
     void handleJobEvent(JobEvent jobEvent);
 
-    boolean isStreamGraphConversionFinished();
+    int getPendingStreamNodes();
 
     void registerJobGraphUpdateListener(JobGraphUpdateListener listener);
 

@@ -173,6 +173,7 @@ public enum JobMasterServiceLeadershipRunnerFactory implements JobManagerRunnerF
                         graph.getJobId(),
                         graph.getJobName(),
                         graph.getJobType(),
+                        graph.isJobGraph() ? 0 : graph.getStreamGraph().getNumberOfVertices(),
                         graph.getJobCheckpointingSettings(),
                         initializationTimestamp,
                         jobMasterServiceFactory);

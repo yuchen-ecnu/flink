@@ -241,9 +241,13 @@ public class AdaptiveJobGraphManager implements AdaptiveJobGraphGenerator, JobVe
         initializeJobGraph();
     }
 
-    @Override
     public boolean isStreamGraphConversionFinished() {
         return streamGraph.getStreamNodes().size() == frozenNodeToStartNodeMap.size();
+    }
+
+    @Override
+    public int getPendingStreamNodes() {
+        return streamGraph.getStreamNodes().size() - frozenNodeToStartNodeMap.size();
     }
 
     @Override
@@ -254,7 +258,7 @@ public class AdaptiveJobGraphManager implements AdaptiveJobGraphGenerator, JobVe
     @Override
     public List<JobVertex> onJobVertexFinished(JobVertexID finishedJobVertexId) {
         this.finishedJobVertices.add(finishedJobVertexId);
-        if(generateMode == GenerateMode.EAGERLY){
+        if (generateMode == GenerateMode.EAGERLY) {
             return Collections.emptyList();
         }
         List<StreamNode> streamNodes = new ArrayList<>();
@@ -322,7 +326,6 @@ public class AdaptiveJobGraphManager implements AdaptiveJobGraphGenerator, JobVe
         }
         createJobVerticesAndUpdateGraph(sourceNodes);
     }
-
 
     private List<JobVertex> createJobVerticesAndUpdateGraph(List<StreamNode> streamNodes) {
         Map<Integer, List<StreamEdge>> nonChainableOutputsCache = new LinkedHashMap<>();
@@ -838,7 +841,8 @@ public class AdaptiveJobGraphManager implements AdaptiveJobGraphGenerator, JobVe
                         entry -> {
                             Integer startNodeId = entry.getKey();
                             OperatorChainInfo chainInfo = entry.getValue();
-                            if (isReadyToCreateJobVertex(chainInfo) || generateMode.equals(GenerateMode.EAGERLY)) {
+                            if (isReadyToCreateJobVertex(chainInfo)
+                                    || generateMode.equals(GenerateMode.EAGERLY)) {
                                 chainEntryPoints.put(startNodeId, chainInfo);
                                 // we cache the outputs here, and set the config later
                                 chainInfo

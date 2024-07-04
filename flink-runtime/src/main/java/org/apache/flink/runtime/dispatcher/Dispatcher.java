@@ -571,6 +571,7 @@ public abstract class Dispatcher extends FencedRpcEndpoint<DispatcherId>
                         jobName,
                         JobStatus.FAILED,
                         null,
+                        0,
                         exception,
                         null,
                         System.currentTimeMillis());

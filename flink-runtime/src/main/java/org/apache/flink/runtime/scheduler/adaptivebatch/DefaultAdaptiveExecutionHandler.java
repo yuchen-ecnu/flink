@@ -266,8 +266,8 @@ public class DefaultAdaptiveExecutionHandler implements AdaptiveExecutionHandler
     }
 
     @Override
-    public boolean isStreamGraphConversionFinished() {
-        return jobGraphManager.isStreamGraphConversionFinished();
+    public int getPendingStreamNodes() {
+        return jobGraphManager.getPendingStreamNodes();
     }
 
     private void notifyJobGraphUpdated(List<JobVertex> jobVertices) throws Exception {

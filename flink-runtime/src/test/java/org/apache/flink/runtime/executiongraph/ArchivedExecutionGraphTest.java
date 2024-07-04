@@ -213,6 +213,7 @@ public class ArchivedExecutionGraphTest {
                         new JobID(),
                         "TestJob",
                         JobStatus.INITIALIZING,
+                        0,
                         JobType.STREAMING,
                         null,
                         null,

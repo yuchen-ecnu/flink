@@ -211,9 +211,8 @@ public class AdaptiveBatchScheduler extends DefaultScheduler implements JobGraph
         this.enableAdaptiveExecution =
                 BatchExecutionOptions.enableAdaptiveExecution(jobMasterConfiguration);
 
-        if (!adaptiveExecutionHandler.isStreamGraphConversionFinished()) {
-            getExecutionGraph().notifyWaitingMoreJobVerticesToBeAdded();
-        }
+        getExecutionGraph()
+                .updatePendingStreamNodes(adaptiveExecutionHandler.getPendingStreamNodes());
     }
 
     private SpeculativeExecutionHandler createSpeculativeExecutionHandler(
@@ -265,11 +264,9 @@ public class AdaptiveBatchScheduler extends DefaultScheduler implements JobGraph
         // 3. update json plan
         getExecutionGraph().setJsonPlan(JsonPlanGenerator.generatePlan(getJobGraph()));
 
-        // 4. notify if no more job vertices waiting to be added, which can make the job final state
-        // static.
-        if (adaptiveExecutionHandler.isStreamGraphConversionFinished()) {
-            getExecutionGraph().notifyNoMoreJobVerticesToBeAdded();
-        }
+        // 4. notify
+        getExecutionGraph()
+                .updatePendingStreamNodes(adaptiveExecutionHandler.getPendingStreamNodes());
 
         // 5. update result partition info
         for (JobVertex newVertex : newVertices) {

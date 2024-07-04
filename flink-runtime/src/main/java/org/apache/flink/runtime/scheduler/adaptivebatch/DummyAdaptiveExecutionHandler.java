@@ -65,13 +65,13 @@ public class DummyAdaptiveExecutionHandler implements AdaptiveExecutionHandler {
     }
 
     @Override
-    public void registerJobGraphUpdateListener(JobGraphUpdateListener listener) {
-        // do nothing
+    public int getPendingStreamNodes() {
+        return 0;
     }
 
     @Override
-    public boolean isStreamGraphConversionFinished() {
-        return true;
+    public void registerJobGraphUpdateListener(JobGraphUpdateListener listener) {
+        // do nothing
     }
 
     @Override

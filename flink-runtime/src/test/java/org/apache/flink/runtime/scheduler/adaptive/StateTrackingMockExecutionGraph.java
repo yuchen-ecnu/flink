@@ -418,13 +418,11 @@ class StateTrackingMockExecutionGraph implements ExecutionGraph {
     }
 
     @Override
-    public void notifyNoMoreJobVerticesToBeAdded() {
-        throw new UnsupportedOperationException();
-    }
+    public void updatePendingStreamNodes(int pendingStreamNodes) {}
 
     @Override
-    public void notifyWaitingMoreJobVerticesToBeAdded() {
-        throw new UnsupportedOperationException();
+    public int getPendingStreamNodes() {
+        return 0;
     }
 
     public void registerExecution(TestingAccessExecution execution) {
