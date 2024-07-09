@@ -155,6 +155,10 @@ public class TaskDeploymentDescriptorFactory {
                     executionVertex
                             .getExecutionVertexInputInfo(resultId)
                             .getSubpartitionIndexRange();
+            boolean isHashConvertToBroadcast =
+                    executionVertex
+                            .getExecutionVertexInputInfo(resultId)
+                            .isHashConvertToBroadcast();
 
             inputGates.add(
                     new InputGateDeploymentDescriptor(
@@ -165,7 +169,8 @@ public class TaskDeploymentDescriptorFactory {
                             getConsumedPartitionShuffleDescriptors(
                                     consumedIntermediateResult,
                                     consumedPartitionGroup,
-                                    executionVertex.getExecutionGraphAccessor())));
+                                    executionVertex.getExecutionGraphAccessor()),
+                            isHashConvertToBroadcast));
         }
 
         final Map<IntermediateDataSetID, ShuffleDescriptorAndIndex[]>

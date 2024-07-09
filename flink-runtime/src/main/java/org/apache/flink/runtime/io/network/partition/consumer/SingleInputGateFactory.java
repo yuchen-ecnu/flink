@@ -151,9 +151,7 @@ public class SingleInputGateFactory {
         // assigned to this input gate.
         //
         // For now this function is only supported in the new mode of Hybrid Shuffle.
-        boolean isSharedInputChannelSupported =
-                igdd.getConsumedPartitionType().isHybridResultPartition()
-                        && tieredStorageConfiguration != null;
+        boolean isSharedInputChannelSupported = true;
 
         GateBuffersSpec gateBuffersSpec =
                 createGateBuffersSpec(
@@ -182,7 +180,8 @@ public class SingleInputGateFactory {
         final MetricGroup networkInputGroup = owner.getInputGroup();
 
         ResultSubpartitionIndexSet subpartitionIndexSet =
-                new ResultSubpartitionIndexSet(igdd.getConsumedSubpartitionIndexRange());
+                new ResultSubpartitionIndexSet(
+                        igdd.getConsumedSubpartitionIndexRange(), igdd.isHashConvertToBroadcast());
         SingleInputGate inputGate =
                 new SingleInputGate(
                         owningTaskName,

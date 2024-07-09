@@ -74,7 +74,20 @@ public class AllToAllBlockingResultInfo extends AbstractBlockingResultInfo {
         return isBroadcast;
     }
 
+    @Override
+    public boolean isHashConvertToBroadcast() {
+        return hashConvertToBroadcast;
+    }
+
+    private boolean hashConvertToBroadcast;
+
     public void setBroadcast(boolean broadcast) {
+        if (!this.isBroadcast && broadcast) {
+            hashConvertToBroadcast = true;
+        } else if (this.isBroadcast && !broadcast) {
+            hashConvertToBroadcast = false;
+        }
+
         isBroadcast = broadcast;
     }
 
