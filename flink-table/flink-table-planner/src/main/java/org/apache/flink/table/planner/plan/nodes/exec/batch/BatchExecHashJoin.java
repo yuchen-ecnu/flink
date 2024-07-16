@@ -382,7 +382,7 @@ public class BatchExecHashJoin extends ExecNodeBase<RowData>
                 leftInputProperty,
                 rightInputProperty,
                 outputType,
-                description.replace("HashJoin(", "AdaptiveJoin(originalJoin=[SortMergeJoin], "),
+                description.replace("HashJoin(", "AdaptiveJoin(originalJoin=[HashJoin], "),
                 joinSpec.getNonEquiCondition().orElse(null),
                 0);
     }
