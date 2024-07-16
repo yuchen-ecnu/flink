@@ -70,6 +70,7 @@ public class DefaultAdaptiveExecutionHandler implements AdaptiveExecutionHandler
     private final Function<Integer, OperatorID> findOperatorIdByStreamNodeId;
 
     private final Set<Integer> updatedStreamNodeIds = new HashSet<>();
+    private final String jobName;
 
     public DefaultAdaptiveExecutionHandler(
             ClassLoader userClassloader,
@@ -85,6 +86,7 @@ public class DefaultAdaptiveExecutionHandler implements AdaptiveExecutionHandler
                         AdaptiveJobGraphManager.GenerateMode.LAZILY);
         this.findOperatorIdByStreamNodeId = checkNotNull(findOperatorIdByStreamNodeId);
         this.configuration = checkNotNull(configuration);
+        this.jobName = String.valueOf(streamGraph.getJobName());
     }
 
     @Override
@@ -145,7 +147,7 @@ public class DefaultAdaptiveExecutionHandler implements AdaptiveExecutionHandler
         }
 
         if (node.getOperatorFactory() instanceof AdaptiveJoin) {
-            log.info("Try optimize adaptive join {} to broadcast join.", node);
+            log.info("Try optimize adaptive join {} to broadcast join for {}.", node, jobName);
 
             AdaptiveJoin adaptiveJoin = (AdaptiveJoin) node.getOperatorFactory();
             List<AdaptiveJoin.PotentialBroadcastSide> potentialBroadcastJoinSides =
@@ -187,12 +189,12 @@ public class DefaultAdaptiveExecutionHandler implements AdaptiveExecutionHandler
 
                 if (jobGraphManager.updateStreamGraph(
                         context -> updateToBroadcastJoin(sameTypeEdges, otherEdge, context))) {
-                    log.info("Update hash join to broadcast join successful!");
+                    log.info("{} Update hash join to broadcast join successful!", jobName);
 
                     adaptiveJoin.markAsBroadcastJoin(getBroadCastSide(edge.getTypeNumber()));
                     updatedStreamNodeIds.add(node.getId());
                 } else {
-                    log.info("Failed to update hash join to broadcast join.");
+                    log.info("{} Failed to update hash join to broadcast join.", jobName);
                 }
             }
         }
