@@ -151,7 +151,7 @@ public class SingleInputGateFactory {
         // assigned to this input gate.
         //
         // For now this function is only supported in the new mode of Hybrid Shuffle.
-        boolean isSharedInputChannelSupported = true;
+        boolean isSharedInputChannelSupported = igdd.isHashConvertToBroadcast();
 
         GateBuffersSpec gateBuffersSpec =
                 createGateBuffersSpec(
