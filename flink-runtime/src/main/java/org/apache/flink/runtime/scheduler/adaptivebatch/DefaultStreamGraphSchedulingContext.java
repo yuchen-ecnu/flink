@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.scheduler.adaptivebatch;
 
 import org.apache.flink.runtime.jobgraph.JobVertex;
+import org.apache.flink.runtime.jobgraph.jsonplan.JsonStreamGraph;
 import org.apache.flink.streaming.api.graph.AdaptiveGraphManager;
 import org.apache.flink.streaming.api.graph.util.ImmutableStreamNode;
 
@@ -64,5 +65,10 @@ public class DefaultStreamGraphSchedulingContext implements StreamGraphSchedulin
     @Override
     public int getPendingOperatorCount() {
         return adaptiveGraphManager.getPendingOperatorsCount();
+    }
+
+    @Override
+    public JsonStreamGraph getJsonStreamGraph() {
+        return null;
     }
 }

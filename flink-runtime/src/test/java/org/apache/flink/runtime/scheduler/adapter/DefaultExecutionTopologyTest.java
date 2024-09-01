@@ -31,6 +31,7 @@ import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
+import org.apache.flink.runtime.jobgraph.jsonplan.JsonStreamGraph;
 import org.apache.flink.runtime.jobmanager.scheduler.SlotSharingGroup;
 import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.runtime.scheduler.adaptivebatch.StreamGraphSchedulingContext;
@@ -459,6 +460,11 @@ class DefaultExecutionTopologyTest {
         @Override
         public int getPendingOperatorCount() {
             return 0;
+        }
+
+        @Override
+        public JsonStreamGraph getJsonStreamGraph() {
+            return null;
         }
     }
 }

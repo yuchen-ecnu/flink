@@ -61,6 +61,7 @@ import org.apache.flink.runtime.jobgraph.JobType;
 import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.JobVertex.FinalizeOnMasterContext;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
+import org.apache.flink.runtime.jobgraph.jsonplan.JsonStreamGraph;
 import org.apache.flink.runtime.jobgraph.tasks.CheckpointCoordinatorConfiguration;
 import org.apache.flink.runtime.jobmanager.scheduler.SlotSharingGroup;
 import org.apache.flink.runtime.metrics.groups.JobManagerJobMetricGroup;
@@ -284,6 +285,8 @@ public class DefaultExecutionGraph implements ExecutionGraph, InternalExecutionG
     @Nullable private TernaryBoolean stateChangelogEnabled;
 
     private String jsonPlan;
+
+    private JsonStreamGraph jsonStreamGraph;
 
     /** Shuffle master to register partitions for task deployment. */
     private final ShuffleMaster<?> shuffleMaster;
@@ -615,6 +618,16 @@ public class DefaultExecutionGraph implements ExecutionGraph, InternalExecutionG
     @Override
     public void setJsonPlan(String jsonPlan) {
         this.jsonPlan = jsonPlan;
+    }
+
+    @Override
+    public void setJsonStreamGraph(JsonStreamGraph jsonStreamGraph) {
+        this.jsonStreamGraph = jsonStreamGraph;
+    }
+
+    @Override
+    public JsonStreamGraph getJsonStreamGraph() {
+        return jsonStreamGraph;
     }
 
     @Override

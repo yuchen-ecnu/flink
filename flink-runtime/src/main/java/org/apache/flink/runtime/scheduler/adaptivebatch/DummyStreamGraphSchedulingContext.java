@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.scheduler.adaptivebatch;
 
+import org.apache.flink.runtime.jobgraph.jsonplan.JsonStreamGraph;
+
 /** A dummy implementation of {@link StreamGraphSchedulingContext}. */
 public final class DummyStreamGraphSchedulingContext implements StreamGraphSchedulingContext {
 
@@ -39,5 +41,10 @@ public final class DummyStreamGraphSchedulingContext implements StreamGraphSched
     @Override
     public int getPendingOperatorCount() {
         return 0;
+    }
+
+    @Override
+    public JsonStreamGraph getJsonStreamGraph() {
+        throw new UnsupportedOperationException();
     }
 }

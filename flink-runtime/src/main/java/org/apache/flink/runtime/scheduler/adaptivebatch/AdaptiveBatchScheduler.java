@@ -224,6 +224,7 @@ public class AdaptiveBatchScheduler extends DefaultScheduler implements JobGraph
                         log, jobMasterConfiguration, executionVertexVersioner, blocklistOperations);
 
         this.jobRecoveryHandler = jobRecoveryHandler;
+        getExecutionGraph().setJsonStreamGraph(adaptiveExecutionHandler.getJsonStreamGraph());
     }
 
     private SpeculativeExecutionHandler createSpeculativeExecutionHandler(
@@ -274,6 +275,7 @@ public class AdaptiveBatchScheduler extends DefaultScheduler implements JobGraph
 
         // 4. update json plan
         getExecutionGraph().setJsonPlan(JsonPlanGenerator.generatePlan(getJobGraph()));
+        getExecutionGraph().setJsonStreamGraph(adaptiveExecutionHandler.getJsonStreamGraph());
 
         // 5. update the DistributionPattern of the upstream results consumed by the newly created
         // JobVertex.

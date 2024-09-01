@@ -20,6 +20,8 @@ package org.apache.flink.runtime.scheduler.adaptivebatch;
 
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobVertex;
+import org.apache.flink.runtime.jobgraph.jsonplan.JsonStreamGraph;
+import org.apache.flink.runtime.jobgraph.jsonplan.JsonStreamGraphSchema;
 import org.apache.flink.runtime.jobmaster.event.ExecutionJobVertexFinishedEvent;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.graph.StreamGraph;
@@ -27,6 +29,10 @@ import org.apache.flink.streaming.api.graph.StreamNode;
 import org.apache.flink.testutils.TestingUtils;
 import org.apache.flink.testutils.executor.TestExecutorExtension;
 import org.apache.flink.util.DynamicCodeLoadingException;
+import org.apache.flink.util.jackson.JacksonMapperFactory;
+
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -35,6 +41,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static org.apache.flink.runtime.jobgraph.jsonplan.JsonGeneratorTest.validateStreamGraph;
 import static org.apache.flink.runtime.scheduler.SchedulerBase.getDefaultMaxParallelism;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -44,6 +51,56 @@ class DefaultStreamGraphSchedulingContextTest {
     @RegisterExtension
     private static final TestExecutorExtension<ScheduledExecutorService> EXECUTOR_RESOURCE =
             TestingUtils.defaultExecutorExtension();
+
+    private static StreamGraph getStreamGraph() {
+        return getStreamGraph(1, 1, 2, 2);
+    }
+
+    private static StreamGraph getStreamGraph(
+            int sourceParallelism,
+            int sourceMaxParallelism,
+            int sinkParallelism,
+            int sinkMaxParallelism) {
+        StreamExecutionEnvironment env = new StreamExecutionEnvironment();
+        env.fromSequence(0L, 1L).disableChaining().print();
+        StreamGraph streamGraph = env.getStreamGraph();
+
+        Iterator<StreamNode> iterator = streamGraph.getStreamNodes().iterator();
+
+        StreamNode source = iterator.next();
+        StreamNode sink = iterator.next();
+
+        source.setParallelism(sourceParallelism);
+        sink.setParallelism(sinkParallelism);
+
+        if (sourceMaxParallelism > 0) {
+            source.setMaxParallelism(sourceMaxParallelism);
+        }
+
+        if (sinkMaxParallelism > 0) {
+            sink.setMaxParallelism(sinkMaxParallelism);
+        }
+        return streamGraph;
+    }
+
+    private static DefaultAdaptiveExecutionHandler getDefaultAdaptiveExecutionHandler(
+            StreamGraph streamGraph) throws DynamicCodeLoadingException {
+        return new DefaultAdaptiveExecutionHandler(
+                Thread.currentThread().getContextClassLoader(),
+                streamGraph,
+                EXECUTOR_RESOURCE.getExecutor());
+    }
+
+    private static StreamGraphSchedulingContext getStreamGraphSchedulingContext(
+            StreamGraph streamGraph, int defaultMaxParallelism) throws DynamicCodeLoadingException {
+        return getDefaultAdaptiveExecutionHandler(streamGraph)
+                .createStreamGraphSchedulingContext(defaultMaxParallelism);
+    }
+
+    private static StreamGraphSchedulingContext getStreamGraphSchedulingContext(
+            AdaptiveExecutionHandler adaptiveExecutionHandler, int defaultMaxParallelism) {
+        return adaptiveExecutionHandler.createStreamGraphSchedulingContext(defaultMaxParallelism);
+    }
 
     @Test
     void testGetParallelismAndMaxParallelism() throws DynamicCodeLoadingException {
@@ -125,53 +182,38 @@ class DefaultStreamGraphSchedulingContextTest {
         assertThat(schedulingContext.getPendingOperatorCount()).isEqualTo(0);
     }
 
-    private static StreamGraph getStreamGraph() {
-        return getStreamGraph(1, 1, 2, 2);
-    }
+    @Test
+    public void testGetJsonStreamGraph()
+            throws DynamicCodeLoadingException, JsonProcessingException {
+        ObjectMapper mapper = JacksonMapperFactory.createObjectMapper();
+        StreamGraph streamGraph = getStreamGraph();
+        DefaultAdaptiveExecutionHandler executionHandler =
+                getDefaultAdaptiveExecutionHandler(streamGraph);
 
-    private static StreamGraph getStreamGraph(
-            int sourceParallelism,
-            int sourceMaxParallelism,
-            int sinkParallelism,
-            int sinkMaxParallelism) {
-        StreamExecutionEnvironment env = new StreamExecutionEnvironment();
-        env.fromSequence(0L, 1L).disableChaining().print();
-        StreamGraph streamGraph = env.getStreamGraph();
+        JsonStreamGraph jsonStreamGraph = executionHandler.getJsonStreamGraph();
 
-        Iterator<StreamNode> iterator = streamGraph.getStreamNodes().iterator();
+        JobGraph jobGraph = executionHandler.getJobGraph();
+        JobVertex source = jobGraph.getVertices().iterator().next();
 
-        StreamNode source = iterator.next();
-        StreamNode sink = iterator.next();
+        assertThat(jsonStreamGraph.getPendingOperators()).isEqualTo(1);
+        JsonStreamGraphSchema parsedStreamGraph =
+                mapper.readValue(jsonStreamGraph.getJsonStreamPlan(), JsonStreamGraphSchema.class);
+        validateStreamGraph(
+                streamGraph, parsedStreamGraph, new String[] {source.getID().toString(), null});
 
-        source.setParallelism(sourceParallelism);
-        sink.setParallelism(sinkParallelism);
+        executionHandler.handleJobEvent(
+                new ExecutionJobVertexFinishedEvent(source.getID(), Collections.emptyMap()));
+        jsonStreamGraph = executionHandler.getJsonStreamGraph();
 
-        if (sourceMaxParallelism > 0) {
-            source.setMaxParallelism(sourceMaxParallelism);
-        }
-
-        if (sinkMaxParallelism > 0) {
-            sink.setMaxParallelism(sinkMaxParallelism);
-        }
-        return streamGraph;
-    }
-
-    private static DefaultAdaptiveExecutionHandler getDefaultAdaptiveExecutionHandler(
-            StreamGraph streamGraph) throws DynamicCodeLoadingException {
-        return new DefaultAdaptiveExecutionHandler(
-                Thread.currentThread().getContextClassLoader(),
+        Iterator<JobVertex> it = jobGraph.getVertices().iterator();
+        source = it.next();
+        JobVertex sink = it.next();
+        assertThat(jsonStreamGraph.getPendingOperators()).isEqualTo(0);
+        parsedStreamGraph =
+                mapper.readValue(jsonStreamGraph.getJsonStreamPlan(), JsonStreamGraphSchema.class);
+        validateStreamGraph(
                 streamGraph,
-                EXECUTOR_RESOURCE.getExecutor());
-    }
-
-    private static StreamGraphSchedulingContext getStreamGraphSchedulingContext(
-            StreamGraph streamGraph, int defaultMaxParallelism) throws DynamicCodeLoadingException {
-        return getDefaultAdaptiveExecutionHandler(streamGraph)
-                .createStreamGraphSchedulingContext(defaultMaxParallelism);
-    }
-
-    private static StreamGraphSchedulingContext getStreamGraphSchedulingContext(
-            AdaptiveExecutionHandler adaptiveExecutionHandler, int defaultMaxParallelism) {
-        return adaptiveExecutionHandler.createStreamGraphSchedulingContext(defaultMaxParallelism);
+                parsedStreamGraph,
+                new String[] {source.getID().toString(), sink.getID().toString()});
     }
 }

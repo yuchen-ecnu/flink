@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.scheduler.adaptivebatch;
 
+import org.apache.flink.runtime.jobgraph.jsonplan.JsonStreamGraph;
+
 /** Interface for retrieving stream graph context details for adaptive batch jobs. */
 public interface StreamGraphSchedulingContext {
 
@@ -44,4 +46,11 @@ public interface StreamGraphSchedulingContext {
      * @return the number of pending operators.
      */
     int getPendingOperatorCount();
+
+    /**
+     * Retrieves the JSON representation of the stream graph.
+     *
+     * @return the JSON representation of the stream graph.
+     */
+    JsonStreamGraph getJsonStreamGraph();
 }

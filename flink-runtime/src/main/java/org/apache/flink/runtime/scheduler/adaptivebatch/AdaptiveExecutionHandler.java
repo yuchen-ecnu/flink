@@ -21,6 +21,7 @@ package org.apache.flink.runtime.scheduler.adaptivebatch;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.forwardgroup.ForwardGroup;
+import org.apache.flink.runtime.jobgraph.jsonplan.JsonStreamGraph;
 import org.apache.flink.runtime.jobmaster.event.JobEvent;
 
 import java.util.function.BiConsumer;
@@ -85,4 +86,11 @@ public interface AdaptiveExecutionHandler {
      * @return an instance of {@code StreamGraphSchedulingContext}.
      */
     StreamGraphSchedulingContext createStreamGraphSchedulingContext(int defaultMaxParallelism);
+
+    /**
+     * Retrieves the JSON representation of the stream graph.
+     *
+     * @return the JSON representation of the stream graph.
+     */
+    JsonStreamGraph getJsonStreamGraph();
 }

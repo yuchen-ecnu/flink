@@ -28,6 +28,7 @@ import org.apache.flink.runtime.executiongraph.ArchivedExecutionJobVertex;
 import org.apache.flink.runtime.executiongraph.ErrorInfo;
 import org.apache.flink.runtime.jobgraph.JobType;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
+import org.apache.flink.runtime.jobgraph.jsonplan.JsonStreamGraph;
 import org.apache.flink.util.OptionalFailure;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.SerializedValue;
@@ -57,6 +58,7 @@ public class ArchivedExecutionGraphBuilder {
     private boolean isStoppable;
     private Map<String, SerializedValue<OptionalFailure<Object>>> serializedUserAccumulators;
     private CheckpointStatsSnapshot checkpointStatsSnapshot;
+    private JsonStreamGraph jsonStreamGraph;
 
     public ArchivedExecutionGraphBuilder setJobID(JobID jobID) {
         this.jobID = jobID;
@@ -98,6 +100,11 @@ public class ArchivedExecutionGraphBuilder {
 
     public ArchivedExecutionGraphBuilder setJsonPlan(String jsonPlan) {
         this.jsonPlan = jsonPlan;
+        return this;
+    }
+
+    public ArchivedExecutionGraphBuilder setJsonStreamGraph(JsonStreamGraph jsonStreamGraph) {
+        this.jsonStreamGraph = jsonStreamGraph;
         return this;
     }
 
@@ -171,6 +178,7 @@ public class ArchivedExecutionGraphBuilder {
                 "stateBackendName",
                 "checkpointStorageName",
                 TernaryBoolean.UNDEFINED,
-                "changelogStorageName");
+                "changelogStorageName",
+                jsonStreamGraph);
     }
 }

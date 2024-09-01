@@ -32,7 +32,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Test for {@link StreamGraphOptimizer} */
+/** Test for {@link StreamGraphOptimizer}. */
 class StreamGraphOptimizerTest {
     private Configuration jobConfiguration;
     private ClassLoader userClassLoader;

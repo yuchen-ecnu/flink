@@ -24,6 +24,8 @@ import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.forwardgroup.ForwardGroup;
 import org.apache.flink.runtime.jobgraph.forwardgroup.StreamNodeForwardGroup;
+import org.apache.flink.runtime.jobgraph.jsonplan.JsonPlanGenerator;
+import org.apache.flink.runtime.jobgraph.jsonplan.JsonStreamGraph;
 import org.apache.flink.runtime.jobmaster.event.ExecutionJobVertexFinishedEvent;
 import org.apache.flink.runtime.jobmaster.event.JobEvent;
 import org.apache.flink.streaming.api.graph.AdaptiveGraphManager;
@@ -185,5 +187,12 @@ public class DefaultAdaptiveExecutionHandler implements AdaptiveExecutionHandler
     public StreamGraphSchedulingContext createStreamGraphSchedulingContext(
             int defaultMaxParallelism) {
         return new DefaultStreamGraphSchedulingContext(adaptiveGraphManager, defaultMaxParallelism);
+    }
+
+    @Override
+    public JsonStreamGraph getJsonStreamGraph() {
+        return JsonPlanGenerator.generateJsonStreamGraph(
+                adaptiveGraphManager.getStreamGraphContext().getStreamGraph(),
+                adaptiveGraphManager.getStreamNodeIdsToJobVertexMap());
     }
 }

@@ -20,7 +20,9 @@ package org.apache.flink.streaming.api.graph.util;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.streaming.api.graph.StreamGraph;
+import org.apache.flink.streaming.api.graph.StreamNode;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -34,14 +36,17 @@ public class ImmutableStreamGraph {
     public ImmutableStreamGraph(StreamGraph streamGraph) {
         this.streamGraph = streamGraph;
         this.immutableStreamNodes = new HashMap<>();
+        for (StreamNode node : streamGraph.getStreamNodes()) {
+            immutableStreamNodes.put(
+                    node.getId(), new ImmutableStreamNode(streamGraph.getStreamNode(node.getId())));
+        }
     }
 
     public ImmutableStreamNode getStreamNode(Integer vertexId) {
-        if (!immutableStreamNodes.containsKey(vertexId)
-                && streamGraph.getStreamNode(vertexId) != null) {
-            immutableStreamNodes.put(
-                    vertexId, new ImmutableStreamNode(streamGraph.getStreamNode(vertexId)));
-        }
         return immutableStreamNodes.get(vertexId);
+    }
+
+    public Collection<ImmutableStreamNode> getStreamNodes() {
+        return immutableStreamNodes.values();
     }
 }

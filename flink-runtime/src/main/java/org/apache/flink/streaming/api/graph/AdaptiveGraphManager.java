@@ -142,6 +142,8 @@ public class AdaptiveGraphManager implements AdaptiveGraphGenerator {
     // The value is the stream node ids belonging to that job vertex.
     private final Map<JobVertexID, List<Integer>> jobVertexToChainedStreamNodeIdsMap;
 
+    private final Map<Integer, JobVertexID> streamNodeIdsToJobVertexMap;
+
     private final Set<JobVertexID> finishedJobVertices;
 
     private final AtomicBoolean hasHybridResultPartition;
@@ -176,6 +178,7 @@ public class AdaptiveGraphManager implements AdaptiveGraphGenerator {
 
         this.jobVertexToStartNodeMap = new HashMap<>();
         this.jobVertexToChainedStreamNodeIdsMap = new HashMap<>();
+        this.streamNodeIdsToJobVertexMap = new HashMap<>();
 
         this.finishedJobVertices = new HashSet<>();
 
@@ -239,6 +242,15 @@ public class AdaptiveGraphManager implements AdaptiveGraphGenerator {
      */
     public List<Integer> getStreamNodeIdsByJobVertexId(JobVertexID jobVertexId) {
         return jobVertexToChainedStreamNodeIdsMap.get(jobVertexId);
+    }
+
+    /**
+     * Retrieves the mapping between stream node IDs and job vertices.
+     *
+     * @return A map of stream node IDs to job vertices.
+     */
+    public Map<Integer, JobVertexID> getStreamNodeIdsToJobVertexMap() {
+        return this.streamNodeIdsToJobVertexMap;
     }
 
     /**
@@ -508,6 +520,7 @@ public class AdaptiveGraphManager implements AdaptiveGraphGenerator {
                                         .computeIfAbsent(
                                                 jobVertex.getID(), key -> new ArrayList<>())
                                         .add(node.getId());
+                                streamNodeIdsToJobVertexMap.put(node.getId(), jobVertex.getID());
                             });
         }
     }
