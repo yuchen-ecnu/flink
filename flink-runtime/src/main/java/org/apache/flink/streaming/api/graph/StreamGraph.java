@@ -1209,12 +1209,18 @@ public class StreamGraph implements Pipeline, Serializable {
                 streamGraphConfig.serializeStreamNodes(new HashMap<>(streamNodes), ioExecutor);
 
         streamGraphConfig.serializeVirtualPartitionNodes(virtualPartitionNodes);
-        streamGraphConfig.serializeStateBackends(stateBackend);
-        this.useManageMemory = stateBackend.useManagedMemory();
-        streamGraphConfig.serializeCheckpointStorage(checkpointStorage);
+        if(stateBackend!=null){
+            streamGraphConfig.serializeStateBackends(stateBackend);
+            this.useManageMemory = stateBackend.useManagedMemory();
+        }
+        if(checkpointStorage!=null){
+            streamGraphConfig.serializeCheckpointStorage(checkpointStorage);
+        }
+        if(timerServiceProvider!=null){
+            streamGraphConfig.serializeTimeServiceProvider(timerServiceProvider);
+        }
         streamGraphConfig.serializeVirtualSideOutputNodes(virtualSideOutputNodes);
         streamGraphConfig.serializeExecutionConfig(executionConfig);
-        streamGraphConfig.serializeTimeServiceProvider(timerServiceProvider);
 
         maximumParallelism = -1;
         for (StreamNode node : streamNodes.values()) {
