@@ -214,6 +214,9 @@ public class AdaptiveBatchScheduler extends DefaultScheduler implements JobGraph
         if (!adaptiveExecutionHandler.isStreamGraphConversionFinished()) {
             getExecutionGraph().notifyWaitingMoreJobVerticesToBeAdded();
         }
+
+        getExecutionGraph()
+                .setJsonStreamGraph(adaptiveExecutionHandler.getJsonStreamGraph());
     }
 
     private SpeculativeExecutionHandler createSpeculativeExecutionHandler(
@@ -265,11 +268,8 @@ public class AdaptiveBatchScheduler extends DefaultScheduler implements JobGraph
         // 3. update json plan
         getExecutionGraph().setJsonPlan(JsonPlanGenerator.generatePlan(getJobGraph()));
 
-        // 4. notify if no more job vertices waiting to be added, which can make the job final state
-        // static.
-        if (adaptiveExecutionHandler.isStreamGraphConversionFinished()) {
-            getExecutionGraph().notifyNoMoreJobVerticesToBeAdded();
-        }
+        // 4. notify
+        getExecutionGraph().setJsonStreamGraph(adaptiveExecutionHandler.getJsonStreamGraph());
 
         // 5. update result partition info
         for (JobVertex newVertex : newVertices) {
@@ -724,6 +724,7 @@ public class AdaptiveBatchScheduler extends DefaultScheduler implements JobGraph
         jobVertex.getJobVertex().setParallelism(parallelism);
         try {
             getExecutionGraph().setJsonPlan(JsonPlanGenerator.generatePlan(getJobGraph()));
+            getExecutionGraph().setJsonStreamGraph(adaptiveExecutionHandler.getJsonStreamGraph());
         } catch (Throwable t) {
             log.warn("Cannot create JSON plan for job", t);
             // give the graph an empty plan

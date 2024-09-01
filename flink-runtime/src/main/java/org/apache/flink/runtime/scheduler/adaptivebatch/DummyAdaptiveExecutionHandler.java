@@ -24,7 +24,10 @@ import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobgraph.forwardgroup.ForwardGroup;
 import org.apache.flink.runtime.jobgraph.forwardgroup.ForwardGroupComputeUtil;
+import org.apache.flink.runtime.jobgraph.jsonplan.JsonStreamGraph;
 import org.apache.flink.runtime.jobmaster.event.JobEvent;
+
+import org.apache.flink.streaming.api.graph.StreamGraph;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -106,5 +109,10 @@ public class DummyAdaptiveExecutionHandler implements AdaptiveExecutionHandler {
         if (forwardGroup != null && !forwardGroup.isParallelismDecided()) {
             forwardGroup.setParallelism(parallelism);
         }
+    }
+
+    @Override
+    public JsonStreamGraph getJsonStreamGraph() {
+        return null;
     }
 }

@@ -84,6 +84,7 @@ class JobDetailsInfoTest extends RestResponseMarshallingTestBase<JobDetailsInfo>
                 timestamps,
                 jobVertexInfos,
                 jobVerticesPerState,
+                new JobPlanInfo.RawJson(jsonPlan),
                 new JobPlanInfo.RawJson(jsonPlan));
     }
 

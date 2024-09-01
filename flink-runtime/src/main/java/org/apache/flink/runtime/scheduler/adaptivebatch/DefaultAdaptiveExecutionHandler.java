@@ -26,6 +26,7 @@ import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobgraph.forwardgroup.StreamNodeForwardGroup;
+import org.apache.flink.runtime.jobgraph.jsonplan.JsonStreamGraph;
 import org.apache.flink.runtime.jobmaster.event.ExecutionJobVertexFinishedEvent;
 import org.apache.flink.runtime.jobmaster.event.JobEvent;
 import org.apache.flink.streaming.api.graph.AdaptiveJobGraphManager;
@@ -93,6 +94,11 @@ public class DefaultAdaptiveExecutionHandler implements AdaptiveExecutionHandler
     public JobGraph getJobGraph() {
         log.info("Try get job graph.");
         return jobGraphManager.getJobGraph();
+    }
+
+    @Override
+    public JsonStreamGraph getJsonStreamGraph() {
+        return jobGraphManager.getStreamGraph();
     }
 
     @Override

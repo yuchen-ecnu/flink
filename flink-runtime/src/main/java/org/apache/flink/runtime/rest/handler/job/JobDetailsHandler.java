@@ -141,6 +141,12 @@ public class JobDetailsHandler
                     executionState, jobVerticesPerState[executionState.ordinal()]);
         }
 
+        JobPlanInfo.RawJson jsonStreamGraph = null;
+        if(executionGraph.getJsonStreamGraph()!=null){
+            jobVerticesPerStateMap.put(ExecutionState.PENDING, executionGraph.getJsonStreamGraph().getPendingOperators());
+            jsonStreamGraph = new JobPlanInfo.RawJson(executionGraph.getJsonStreamGraph().getJsonStreamPlan());
+        }
+
         return new JobDetailsInfo(
                 executionGraph.getJobID(),
                 executionGraph.getJobName(),
@@ -155,7 +161,8 @@ public class JobDetailsHandler
                 timestamps,
                 jobVertexInfos,
                 jobVerticesPerStateMap,
-                new JobPlanInfo.RawJson(executionGraph.getJsonPlan()));
+                new JobPlanInfo.RawJson(executionGraph.getJsonPlan()),
+                jsonStreamGraph);
     }
 
     private static JobDetailsInfo.JobVertexDetailsInfo createJobVertexDetailsInfo(

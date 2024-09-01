@@ -33,6 +33,8 @@ import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobgraph.forwardgroup.StreamNodeForwardGroup;
+import org.apache.flink.runtime.jobgraph.jsonplan.JsonPlanGenerator;
+import org.apache.flink.runtime.jobgraph.jsonplan.JsonStreamGraph;
 import org.apache.flink.runtime.jobmanager.scheduler.CoLocationGroupImpl;
 import org.apache.flink.runtime.jobmanager.scheduler.SlotSharingGroup;
 import org.apache.flink.runtime.operators.coordination.OperatorCoordinator;
@@ -249,6 +251,11 @@ public class AdaptiveJobGraphManager implements AdaptiveJobGraphGenerator, JobVe
     @Override
     public JobGraph getJobGraph() {
         return this.jobGraph;
+    }
+
+    @Override
+    public JsonStreamGraph getStreamGraph() {
+        return JsonPlanGenerator.generateJsonStreamGraph(streamGraph, jobVerticesCache);
     }
 
     @Override
@@ -797,8 +804,10 @@ public class AdaptiveJobGraphManager implements AdaptiveJobGraphGenerator, JobVe
         if (LOG.isDebugEnabled()) {
             LOG.debug("Parallelism set: {} for {}", parallelism, streamNodeId);
         }
+        for (StreamNode chainedNode : chainInfo.getAllChainedNodes()) {
+            jobVerticesCache.put(chainedNode.getId(), jobVertex);
+        }
 
-        jobVerticesCache.put(streamNodeId, jobVertex);
         jobGraph.addVertex(jobVertex);
 
         jobVertex.setParallelismConfigured(

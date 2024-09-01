@@ -32,8 +32,13 @@ import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JsonGenerator
 
 import org.apache.commons.text.StringEscapeUtils;
 
+import org.apache.flink.streaming.api.graph.StreamEdge;
+import org.apache.flink.streaming.api.graph.StreamGraph;
+import org.apache.flink.streaming.api.graph.StreamNode;
+
 import java.io.StringWriter;
 import java.util.List;
+import java.util.Map;
 
 @Internal
 public class JsonPlanGenerator {
@@ -168,6 +173,59 @@ public class JsonPlanGenerator {
             return writer.toString();
         } catch (Exception e) {
             throw new RuntimeException("Failed to generate plan", e);
+        }
+    }
+
+    public static JsonStreamGraph generateJsonStreamGraph(
+            StreamGraph sg,
+            Map<Integer, JobVertex> jobVertexMap) {
+        int pendingOperators = 0;
+        try (final StringWriter writer = new StringWriter(1024)) {
+            try (final JsonGenerator gen = new JsonFactory().createGenerator(writer)) {
+                // start of everything
+                gen.writeStartObject();
+
+                gen.writeArrayFieldStart("nodes");
+
+                // info per vertex
+                for (StreamNode node : sg.getStreamNodes()) {
+                    gen.writeStartObject();
+                    gen.writeStringField("id", String.valueOf(node.getId()));
+                    gen.writeNumberField("parallelism", node.getParallelism());
+                    gen.writeStringField("operator", node.getOperatorName());
+                    gen.writeStringField("description", node.getOperatorDescription());
+                    if(jobVertexMap.containsKey(node.getId())){
+                        gen.writeStringField("job_vertex_id", jobVertexMap.get(node.getId()).getID().toString());
+                    } else {
+                        pendingOperators +=1;
+                    }
+
+                    // write the input edge properties
+                    gen.writeArrayFieldStart("inputs");
+
+                    List<StreamEdge> inEdges = node.getInEdges();
+                    for (int inputNum = 0; inputNum < inEdges.size(); inputNum++) {
+                        StreamEdge edge = inEdges.get(inputNum);
+                        gen.writeStartObject();
+                        gen.writeNumberField("num", inputNum);
+                        gen.writeStringField("id", String.valueOf(edge.getSourceId()));
+                        gen.writeStringField("ship_strategy", edge.getPartitioner().toString());
+                        gen.writeStringField("exchange", edge.getExchangeMode().name());
+                        gen.writeEndObject();
+                    }
+
+                    gen.writeEndArray();
+
+                    gen.writeEndObject();
+                }
+
+                // end of everything
+                gen.writeEndArray();
+                gen.writeEndObject();
+            }
+            return new JsonStreamGraph(writer.toString(), pendingOperators);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to generate json stream plan", e);
         }
     }
 }

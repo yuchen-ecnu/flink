@@ -21,6 +21,7 @@ package org.apache.flink.runtime.scheduler.adaptivebatch;
 import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.OperatorID;
+import org.apache.flink.runtime.jobgraph.jsonplan.JsonStreamGraph;
 import org.apache.flink.runtime.jobmaster.event.JobEvent;
 
 /**
@@ -50,4 +51,6 @@ public interface AdaptiveExecutionHandler {
     int getInitialParallelismByForwardGroup(ExecutionJobVertex jobVertex);
 
     void updateForwardGroupByNewlyParallelism(ExecutionJobVertex jobVertex, int parallelism);
+
+    JsonStreamGraph getJsonStreamGraph();
 }

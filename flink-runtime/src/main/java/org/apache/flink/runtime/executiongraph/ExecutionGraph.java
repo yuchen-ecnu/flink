@@ -36,6 +36,7 @@ import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
 import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
+import org.apache.flink.runtime.jobgraph.jsonplan.JsonStreamGraph;
 import org.apache.flink.runtime.jobgraph.tasks.CheckpointCoordinatorConfiguration;
 import org.apache.flink.runtime.metrics.groups.JobManagerJobMetricGroup;
 import org.apache.flink.runtime.query.KvStateLocationRegistry;
@@ -103,6 +104,8 @@ public interface ExecutionGraph extends AccessExecutionGraph {
     KvStateLocationRegistry getKvStateLocationRegistry();
 
     void setJsonPlan(String jsonPlan);
+
+    void setJsonStreamGraph(JsonStreamGraph jsonStreamGraph);
 
     Configuration getJobConfiguration();
 

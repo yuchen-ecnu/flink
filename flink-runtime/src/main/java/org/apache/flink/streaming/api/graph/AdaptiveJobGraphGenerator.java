@@ -21,6 +21,7 @@ package org.apache.flink.streaming.api.graph;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
+import org.apache.flink.runtime.jobgraph.jsonplan.JsonStreamGraph;
 
 import java.util.List;
 import java.util.function.Function;
@@ -51,6 +52,7 @@ public interface AdaptiveJobGraphGenerator {
      * @return The current {@link JobGraph} instance.
      */
     JobGraph getJobGraph();
+    JsonStreamGraph getStreamGraph();
 
     /**
      * Updates the StreamGraph based on the specified update request information.
