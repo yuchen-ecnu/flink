@@ -76,8 +76,6 @@ public interface AccessExecutionGraph extends JobStatusProvider {
     @Nullable
     JobType getJobType();
 
-    int getPendingStreamNodes();
-
     /**
      * Returns the exception that caused the job to fail. This is the first root exception that was
      * not recoverable and triggered job failure.

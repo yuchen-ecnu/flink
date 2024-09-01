@@ -199,7 +199,7 @@ public class DefaultExecutionGraph implements ExecutionGraph, InternalExecutionG
     /** Number of total job vertices. */
     private int numJobVerticesTotal;
 
-    private int pendingStreamNodes = 0;
+    private boolean waitingJobVerticesToBeAdded = false;
 
     private final PartitionGroupReleaseStrategy.Factory partitionGroupReleaseStrategyFactory;
 
@@ -658,11 +658,6 @@ public class DefaultExecutionGraph implements ExecutionGraph, InternalExecutionG
     }
 
     @Override
-    public int getPendingStreamNodes() {
-        return pendingStreamNodes;
-    }
-
-    @Override
     public Throwable getFailureCause() {
         return failureCause;
     }
@@ -915,8 +910,13 @@ public class DefaultExecutionGraph implements ExecutionGraph, InternalExecutionG
     }
 
     @Override
-    public void updatePendingStreamNodes(int pendingStreamNodes) {
-        this.pendingStreamNodes = pendingStreamNodes;
+    public void notifyNoMoreJobVerticesToBeAdded() {
+        waitingJobVerticesToBeAdded = false;
+    }
+
+    @Override
+    public void notifyWaitingMoreJobVerticesToBeAdded() {
+        waitingJobVerticesToBeAdded = true;
     }
 
     /** Attach job vertices without initializing them. */
@@ -1251,7 +1251,7 @@ public class DefaultExecutionGraph implements ExecutionGraph, InternalExecutionG
     public void jobVertexFinished() {
         assertRunningInJobMasterMainThread();
         final int numFinished = ++numFinishedJobVertices;
-        if (numFinished == numJobVerticesTotal && pendingStreamNodes == 0) {
+        if (numFinished == numJobVerticesTotal && !waitingJobVerticesToBeAdded) {
             FutureUtils.assertNoException(
                     waitForAllExecutionsTermination().thenAccept(ignored -> jobFinished()));
         }

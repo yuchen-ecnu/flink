@@ -37,7 +37,13 @@ public interface AdaptiveJobGraphGenerator {
      */
     List<JobVertex> onJobVertexFinished(JobVertexID finishedJobVertexId);
 
-    int getPendingStreamNodes();
+    /**
+     * Checks if the conversion from StreamGraph to JobGraph has been finished.
+     *
+     * @return {@code true} if the StreamGraph to JobGraph conversion is finished, {@code false}
+     *     otherwise.
+     */
+    boolean isStreamGraphConversionFinished();
 
     /**
      * Retrieves the JobGraph representation of the current Flink job.

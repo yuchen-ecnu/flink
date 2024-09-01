@@ -235,7 +235,9 @@ public interface ExecutionGraph extends AccessExecutionGraph {
             VertexParallelismStore newVerticesParallelismStore)
             throws JobException;
 
-    void updatePendingStreamNodes(int pendingStreamNodes);
+    void notifyNoMoreJobVerticesToBeAdded();
+
+    void notifyWaitingMoreJobVerticesToBeAdded();
 
     /**
      * Initialize the given execution job vertex, mainly includes creating execution vertices

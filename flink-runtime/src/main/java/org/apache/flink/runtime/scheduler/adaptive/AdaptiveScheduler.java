@@ -999,7 +999,6 @@ public class AdaptiveScheduler
                 jobInformation.getJobID(),
                 jobInformation.getName(),
                 jobStatus,
-                0,
                 jobGraph.getJobType(),
                 cause,
                 jobInformation.getCheckpointingSettings(),

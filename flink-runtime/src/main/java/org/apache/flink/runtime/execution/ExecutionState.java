@@ -70,8 +70,6 @@ public enum ExecutionState {
 
     RECONCILING,
 
-    PENDING,
-
     /** Restoring last possible valid state of the task if it has it. */
     INITIALIZING;
 

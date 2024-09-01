@@ -107,7 +107,6 @@ export interface TasksStatus {
   RECONCILING: number;
   CANCELING: number;
   INITIALIZING: number;
-  PENDING: number;
 }
 
 interface MetricsStatus {

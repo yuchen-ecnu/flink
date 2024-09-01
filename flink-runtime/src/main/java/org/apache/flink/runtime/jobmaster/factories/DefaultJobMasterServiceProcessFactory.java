@@ -39,20 +39,17 @@ public class DefaultJobMasterServiceProcessFactory implements JobMasterServicePr
     private final long initializationTimestamp;
 
     private final JobMasterServiceFactory jobMasterServiceFactory;
-    private final int pendingStreamNodes;
 
     public DefaultJobMasterServiceProcessFactory(
             JobID jobId,
             String jobName,
             JobType jobType,
-            int pendingStreamNodes,
             @Nullable JobCheckpointingSettings checkpointingSettings,
             long initializationTimestamp,
             JobMasterServiceFactory jobMasterServiceFactory) {
         this.jobId = jobId;
         this.jobName = jobName;
         this.jobType = jobType;
-        this.pendingStreamNodes = pendingStreamNodes;
         this.checkpointingSettings = checkpointingSettings;
         this.initializationTimestamp = initializationTimestamp;
         this.jobMasterServiceFactory = jobMasterServiceFactory;
@@ -80,7 +77,6 @@ public class DefaultJobMasterServiceProcessFactory implements JobMasterServicePr
                 jobName,
                 jobStatus,
                 jobType,
-                pendingStreamNodes,
                 cause,
                 checkpointingSettings,
                 initializationTimestamp);
