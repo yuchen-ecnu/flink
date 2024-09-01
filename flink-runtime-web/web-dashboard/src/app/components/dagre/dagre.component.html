@@ -15,7 +15,13 @@
   ~ See the License for the specific language governing permissions and
   ~ limitations under the License.
   -->
-
+<nz-switch
+  [(ngModel)]="isStreamGraph"
+  nzCheckedChildren="Stream Graph"
+  nzUnCheckedChildren="Hybrid Graph"
+  (ngModelChange)="onGraphTypeChanged()"
+  [style.visibility]="showGraphSwitch ? 'visible' : 'hidden'"
+></nz-switch>
 <flink-svg-container [style.visibility]="visibility" (transformEvent)="onTransform($event)">
   <svg:g class="graph" #graphElement>
     <defs>
@@ -54,6 +60,7 @@
         class="edge"
         [id]="'link-' + link.id"
         [class.focused]="link.options?.focused"
+        [class.initializing]="!link?.initialized"
         [attr.marker-end]="'url(#end-arrow' + (link.options?.focused ? '-focus' : '') + ')'"
       ></svg:path>
       <svg:text class="edge-label" text-anchor="middle" dy="20">

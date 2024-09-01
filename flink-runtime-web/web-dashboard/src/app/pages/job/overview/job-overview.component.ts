@@ -51,10 +51,14 @@ import { JobLocalService } from '../job-local.service';
 export class JobOverviewComponent implements OnInit, OnDestroy {
   public nodes: NodesItemCorrect[] = [];
   public links: NodesItemLink[] = [];
+  public streamNodes: NodesItemCorrect[] = [];
+  public streamLinks: NodesItemLink[] = [];
   public selectedNode: NodesItemCorrect | null;
   public top = 500;
   public jobId: string;
   public timeoutId: number;
+  public jobType: string = 'STREAMING';
+  private nodesSet: Set<string> = new Set();
 
   @ViewChild(DagreComponent, { static: true }) private readonly dagreComponent: DagreComponent;
 
@@ -79,11 +83,17 @@ export class JobOverviewComponent implements OnInit, OnDestroy {
         takeUntil(this.destroy$)
       )
       .subscribe(data => {
-        if (this.jobId !== data.plan.jid || this.nodes.length === 0) {
+        if (this.jobId !== data.plan.jid || this.checkNodesChanged(data.plan.nodes)) {
+          this.jobId = data.plan.jid;
+          this.jobType = data['job-type'];
+          if (data.plan.streamNodes && data.plan.streamLinks) {
+            this.streamNodes = data.plan.streamNodes;
+            this.streamLinks = data.plan.streamLinks;
+          }
           this.nodes = data.plan.nodes;
           this.links = data.plan.links;
-          this.jobId = data.plan.jid;
-          this.dagreComponent.flush(this.nodes, this.links, true).then();
+          this.nodesSet = new Set(this.nodes.map(n => n.id));
+          this.refreshGraph(this.dagreComponent.isStreamGraph);
           this.refreshNodesWithMetrics();
         } else {
           this.nodes = data.plan.nodes;
@@ -104,6 +114,10 @@ export class JobOverviewComponent implements OnInit, OnDestroy {
         this.selectedNode = data;
         this.cdr.markForCheck();
       });
+  }
+
+  public initializedNodes(): NodesItemCorrect[] {
+    return this.nodes.filter(node => node.initialized);
   }
 
   public ngOnDestroy(): void {
@@ -137,7 +151,10 @@ export class JobOverviewComponent implements OnInit, OnDestroy {
   }
 
   public refreshNodesWithMetrics(): void {
-    this.mergeWithBackPressureAndSkew(this.nodes)
+    if (this.dagreComponent.isStreamGraph) {
+      return;
+    }
+    this.mergeWithBackPressureAndSkew(this.initializedNodes())
       .pipe(
         mergeMap(nodes => this.mergeWithWatermarks(nodes)),
         takeUntil(this.destroy$)
@@ -183,5 +200,26 @@ export class JobOverviewComponent implements OnInit, OnDestroy {
         );
       })
     ).pipe(catchError(() => of(nodes)));
+  }
+
+  private checkNodesChanged(updatedNodes: NodesItemCorrect[]): boolean {
+    if (this.dagreComponent.isStreamGraph) {
+      return false;
+    }
+    if (updatedNodes.length !== this.nodes.length) return true;
+    for (const node of updatedNodes) {
+      if (!this.nodesSet.has(node.id)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  refreshGraph(isStreamGraph: boolean): void {
+    if (isStreamGraph) {
+      this.dagreComponent.flush(this.streamNodes, this.streamLinks, true).then();
+    } else {
+      this.dagreComponent.flush(this.nodes, this.links, true).then();
+    }
   }
 }
