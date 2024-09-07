@@ -25,12 +25,13 @@
   >
     <xhtml:div
       class="node-label-wrapper"
+      [class.initializing]="!initialized"
       [style.border-color]="borderColor"
       [style.background-color]="backgroundColor"
     >
       <h4 class="content-wrap">
         <xhtml:div class="detail">{{ operator }}</xhtml:div>
-        <xhtml:div class="detail description">{{ description }}</xhtml:div>
+        <xhtml:div class="detail description" *ngIf="initialized">{{ description }}</xhtml:div>
         <xhtml:div class="node-label">Parallelism: {{ parallelism }}</xhtml:div>
         <xhtml:div
           class="node-label metric"
@@ -47,7 +48,7 @@
         <xhtml:div class="node-label metric" *ngIf="lowWatermark">
           Low Watermark: {{ lowWatermark }}
         </xhtml:div>
-        <xhtml:div class="detail last" *ngIf="operatorStrategy">
+        <xhtml:div class="detail last" *ngIf="operatorStrategy && initialized">
           Operation: {{ operatorStrategy }}
         </xhtml:div>
       </h4>

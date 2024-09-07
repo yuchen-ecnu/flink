@@ -263,7 +263,7 @@ export class DagreComponent extends NzGraph {
     if ($event) {
       $event.stopPropagation();
     }
-    if (node) {
+    if (node && node.initialized) {
       if (emit) {
         this.nodeClick.emit(node);
       }

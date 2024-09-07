@@ -54,6 +54,7 @@
         class="edge"
         [id]="'link-' + link.id"
         [class.focused]="link.options?.focused"
+        [class.initializing]="!link?.initialized"
         [attr.marker-end]="'url(#end-arrow' + (link.options?.focused ? '-focus' : '') + ')'"
       ></svg:path>
       <svg:text class="edge-label" text-anchor="middle" dy="20">

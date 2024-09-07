@@ -55,6 +55,7 @@ export class JobOverviewComponent implements OnInit, OnDestroy {
   public top = 500;
   public jobId: string;
   public timeoutId: number;
+  private nodesSet: Set<string> = new Set();
 
   @ViewChild(DagreComponent, { static: true }) private readonly dagreComponent: DagreComponent;
 
@@ -79,8 +80,9 @@ export class JobOverviewComponent implements OnInit, OnDestroy {
         takeUntil(this.destroy$)
       )
       .subscribe(data => {
-        if (this.jobId !== data.plan.jid || this.nodes.length === 0) {
+        if (this.jobId !== data.plan.jid || this.checkNodesChanged(data.plan.nodes)) {
           this.nodes = data.plan.nodes;
+          this.nodesSet = new Set(this.nodes.map(n => n.id));
           this.links = data.plan.links;
           this.jobId = data.plan.jid;
           this.dagreComponent.flush(this.nodes, this.links, true).then();
@@ -104,6 +106,10 @@ export class JobOverviewComponent implements OnInit, OnDestroy {
         this.selectedNode = data;
         this.cdr.markForCheck();
       });
+  }
+
+  public initializedNodes(): NodesItemCorrect[] {
+    return this.nodes.filter(node => node.initialized);
   }
 
   public ngOnDestroy(): void {
@@ -137,7 +143,7 @@ export class JobOverviewComponent implements OnInit, OnDestroy {
   }
 
   public refreshNodesWithMetrics(): void {
-    this.mergeWithBackPressureAndSkew(this.nodes)
+    this.mergeWithBackPressureAndSkew(this.initializedNodes())
       .pipe(
         mergeMap(nodes => this.mergeWithWatermarks(nodes)),
         takeUntil(this.destroy$)
@@ -183,5 +189,15 @@ export class JobOverviewComponent implements OnInit, OnDestroy {
         );
       })
     ).pipe(catchError(() => of(nodes)));
+  }
+
+  private checkNodesChanged(updatedNodes: NodesItemCorrect[]): boolean {
+    if (updatedNodes.length !== this.nodes.length) return true;
+    for (const node of updatedNodes) {
+      if (!this.nodesSet.has(node.id)) {
+        return true;
+      }
+    }
+    return false;
   }
 }

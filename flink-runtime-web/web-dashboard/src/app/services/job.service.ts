@@ -41,8 +41,8 @@ import {
   SubTaskAccumulators,
   TaskStatus,
   UserAccumulators,
-  VerticesLink,
-  JobVertexSubTaskDetail
+  JobVertexSubTaskDetail,
+  NodesItemLink
 } from '@flink-runtime-web/interfaces';
 import { JobResourceRequirements } from '@flink-runtime-web/interfaces/job-resource-requirements';
 
@@ -207,7 +207,7 @@ export class JobService {
 
   /** nodes to nodes links in order to generate graph */
   private convertJob(job: JobDetail): JobDetailCorrect {
-    const links: VerticesLink[] = [];
+    const links: NodesItemLink[] = [];
     let nodes: NodesItemCorrect[] = [];
     if (job.plan?.nodes?.length) {
       nodes = job.plan.nodes.map(node => {
@@ -217,18 +217,49 @@ export class JobService {
         }
         return {
           ...node,
-          detail
+          detail,
+          initialized: true
         };
       });
       nodes.forEach(node => {
         if (node.inputs && node.inputs.length) {
           node.inputs.forEach(input => {
-            links.push({ ...input, source: input.id, target: node.id, id: `${input.id}-${node.id}` });
+            links.push({
+              ...input,
+              source: input.id,
+              target: node.id,
+              id: `${input.id}-${node.id}`,
+              initialized: true
+            });
           });
         }
       });
       const listOfVerticesId = job.vertices.map(item => item.id);
       nodes.sort((pre, next) => listOfVerticesId.indexOf(pre.id) - listOfVerticesId.indexOf(next.id));
+    }
+    if (job['stream-graph-plan']?.nodes?.length) {
+      const stream_nodes = job['stream-graph-plan'].nodes.filter(node => !node.job_vertex_id);
+      stream_nodes.forEach(node => {
+        nodes.push({
+          ...node,
+          initialized: false
+        });
+        if (node.inputs && node.inputs.length) {
+          node.inputs.forEach(input => {
+            const source_node = job['stream-graph-plan'].nodes.find(vertex => vertex.id === input.id);
+            const source_id = source_node?.job_vertex_id ? source_node.job_vertex_id : source_node?.id;
+            if (source_id) {
+              links.push({
+                ...input,
+                source: source_id,
+                target: node.id,
+                id: `${source_id}-${node.id}`,
+                initialized: false
+              });
+            }
+          });
+        }
+      });
     }
     return {
       ...job,

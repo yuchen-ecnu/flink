@@ -31,7 +31,7 @@
   <flink-job-overview-list
     (nodeClick)="onNodeClick($event)"
     (rescale)="onRescale($event)"
-    [nodes]="nodes"
+    [nodes]="initializedNodes()"
     [selectedNode]="selectedNode"
   ></flink-job-overview-list>
   <flink-resize
