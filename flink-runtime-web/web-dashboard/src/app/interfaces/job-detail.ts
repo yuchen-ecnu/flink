@@ -168,5 +168,7 @@ export interface JobDetailCorrect extends JobDetail {
     type: string;
     nodes: NodesItemCorrect[];
     links: NodesItemLink[];
+    streamNodes?: NodesItemCorrect[];
+    streamLinks?: NodesItemLink[];
   };
 }

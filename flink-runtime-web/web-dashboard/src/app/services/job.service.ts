@@ -238,28 +238,52 @@ export class JobService {
       nodes.sort((pre, next) => listOfVerticesId.indexOf(pre.id) - listOfVerticesId.indexOf(next.id));
     }
     if (job['stream-graph-plan']?.nodes?.length) {
-      const stream_nodes = job['stream-graph-plan'].nodes.filter(node => !node.job_vertex_id);
-      stream_nodes.forEach(node => {
-        nodes.push({
-          ...node,
-          initialized: false
-        });
+      const streamNodes = job['stream-graph-plan'].nodes;
+      const streamLinks: NodesItemLink[] = [];
+      streamNodes.forEach(node => {
+        // merge uninitialized stream node to job graph
+        if (!node.job_vertex_id) {
+          nodes.push({
+            ...node,
+            initialized: false
+          });
+        }
         if (node.inputs && node.inputs.length) {
           node.inputs.forEach(input => {
             const source_node = job['stream-graph-plan'].nodes.find(vertex => vertex.id === input.id);
-            const source_id = source_node?.job_vertex_id ? source_node.job_vertex_id : source_node?.id;
-            if (source_id) {
-              links.push({
-                ...input,
-                source: source_id,
-                target: node.id,
-                id: `${source_id}-${node.id}`,
-                initialized: false
-              });
+            if (!source_node) {
+              return;
             }
+            const source_id = source_node.job_vertex_id ? source_node.job_vertex_id : source_node.id;
+            const link: NodesItemLink = {
+              ...input,
+              source: source_id,
+              target: node.id,
+              id: `${source_id}-${node.id}`,
+              initialized: false
+            };
+            if (!node.job_vertex_id) {
+              // merge uninitialized stream link to job graph
+              links.push(link);
+            }
+            streamLinks.push({
+              ...link,
+              source: source_node.id,
+              id: `${source_node.id}-${node.id}`
+            });
           });
         }
       });
+      return {
+        ...job,
+        plan: {
+          ...job.plan,
+          nodes,
+          links,
+          streamNodes,
+          streamLinks
+        }
+      };
     }
     return {
       ...job,

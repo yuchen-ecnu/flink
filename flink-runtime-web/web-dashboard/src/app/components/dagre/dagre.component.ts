@@ -36,6 +36,7 @@ import { NodesItemCorrect, NodesItemLink } from '@flink-runtime-web/interfaces';
 import { select } from 'd3-selection';
 import { zoomIdentity } from 'd3-zoom';
 import { NzSliderModule } from 'ng-zorro-antd/slider';
+import { NzSwitchModule } from 'ng-zorro-antd/switch';
 
 import { NodeComponent } from './components/node/node.component';
 import { SvgContainerComponent } from './components/svg-container/svg-container.component';
@@ -51,7 +52,7 @@ enum Visibility {
   templateUrl: './dagre.component.html',
   styleUrls: ['./dagre.component.less'],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [SvgContainerComponent, NodeComponent, NzSliderModule, FormsModule, CommonModule],
+  imports: [SvgContainerComponent, NodeComponent, NzSliderModule, FormsModule, CommonModule, NzSwitchModule],
   standalone: true
 })
 export class DagreComponent extends NzGraph {
@@ -60,6 +61,7 @@ export class DagreComponent extends NzGraph {
   focusedLinkIds: string[] = [];
   selectedNodeId: string | null;
   zoom = 1;
+  isStreamGraph = false;
   cacheTransform = { x: 0, y: 0, k: 1 };
   oldTransform = { x: 0, y: 0, k: 1 };
   cacheNodes: NodesItemCorrect[] = [];
@@ -72,7 +74,9 @@ export class DagreComponent extends NzGraph {
   @ViewChild('overlayElement', { static: true }) overlayElement: ElementRef;
   @Input() xCenter = 2;
   @Input() yCenter = 2;
+  @Input() showGraphSwitch: boolean = false;
   @Output() nodeClick = new EventEmitter<LayoutNode | null>();
+  @Output() graphTypeChanged = new EventEmitter<boolean>();
 
   /**
    * Update Node detail
@@ -137,6 +141,10 @@ export class DagreComponent extends NzGraph {
       const t = zoomIdentity.translate(translateX, translateY).scale(this.zoom);
       this.svgContainer.setPositionByTransform(t);
     }
+  }
+
+  onGraphTypeChanged(): void {
+    this.graphTypeChanged.emit(this.isStreamGraph);
   }
 
   /**
