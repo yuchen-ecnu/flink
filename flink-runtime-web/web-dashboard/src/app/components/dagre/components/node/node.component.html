@@ -36,16 +36,25 @@
         <xhtml:div
           class="node-label metric"
           title="Maximum back pressured percentage across all subtasks"
+          *ngIf="initialized"
         >
           Backpressured (max): {{ prettyPrint(backPressuredPercentage) }}
         </xhtml:div>
-        <xhtml:div class="node-label metric" title="Maximum busy percentage across all subtasks">
+        <xhtml:div
+          class="node-label metric"
+          title="Maximum busy percentage across all subtasks"
+          *ngIf="initialized"
+        >
           Busy (max): {{ prettyPrint(busyPercentage) }}
         </xhtml:div>
-        <xhtml:div class="node-label metric" title="Data skew percentage across all subtasks">
+        <xhtml:div
+          class="node-label metric"
+          title="Data skew percentage across all subtasks"
+          *ngIf="initialized"
+        >
           Data Skew: {{ prettyPrint(dataSkewPercentage) }}
         </xhtml:div>
-        <xhtml:div class="node-label metric" *ngIf="lowWatermark">
+        <xhtml:div class="node-label metric" *ngIf="lowWatermark && initialized">
           Low Watermark: {{ lowWatermark }}
         </xhtml:div>
         <xhtml:div class="detail last" *ngIf="operatorStrategy && initialized">

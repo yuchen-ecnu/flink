@@ -239,7 +239,6 @@ export class JobService {
     }
     if (job['stream-graph-plan']?.nodes?.length) {
       const streamNodes = job['stream-graph-plan'].nodes;
-      const streamLinks: NodesItemLink[] = [];
       streamNodes.forEach(node => {
         // merge uninitialized stream node to job graph
         if (!node.job_vertex_id) {
@@ -266,11 +265,6 @@ export class JobService {
               // merge uninitialized stream link to job graph
               links.push(link);
             }
-            streamLinks.push({
-              ...link,
-              source: source_node.id,
-              id: `${source_node.id}-${node.id}`
-            });
           });
         }
       });
@@ -279,9 +273,7 @@ export class JobService {
         plan: {
           ...job.plan,
           nodes,
-          links,
-          streamNodes,
-          streamLinks
+          links
         }
       };
     }

@@ -15,13 +15,15 @@
   ~ See the License for the specific language governing permissions and
   ~ limitations under the License.
   -->
-<nz-switch
-  [(ngModel)]="isStreamGraph"
-  nzCheckedChildren="Stream Graph"
-  nzUnCheckedChildren="Hybrid Graph"
+<label
+  nz-checkbox
+  class="checkbox"
+  [(ngModel)]="showPendingOperators"
   (ngModelChange)="onGraphTypeChanged()"
   [style.visibility]="showGraphSwitch ? 'visible' : 'hidden'"
-></nz-switch>
+>
+  Show Pending Operators
+</label>
 <flink-svg-container [style.visibility]="visibility" (transformEvent)="onTransform($event)">
   <svg:g class="graph" #graphElement>
     <defs>

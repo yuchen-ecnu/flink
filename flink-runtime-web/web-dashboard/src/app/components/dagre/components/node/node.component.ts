@@ -45,11 +45,11 @@ export class NodeComponent {
   id: string;
   backgroundBusyColor = '#ee6464';
   backgroundDefaultColor = '#5db1ff';
-  backgroundPendingColor = '#95a5a6';
+  backgroundPendingColor = '#ffffff';
   backgroundBackPressuredColor = '#888888';
   borderBusyColor = '#ee2222';
   borderDefaultColor = '#1890ff';
-  borderPendingColor = '#95a5a6';
+  borderPendingColor = '#000000';
   borderBackPressuredColor = '#000000';
 
   decodeHTML(value: string): string | null {

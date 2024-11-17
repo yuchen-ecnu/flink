@@ -35,8 +35,8 @@ import { FormsModule } from '@angular/forms';
 import { NodesItemCorrect, NodesItemLink } from '@flink-runtime-web/interfaces';
 import { select } from 'd3-selection';
 import { zoomIdentity } from 'd3-zoom';
+import { NzCheckboxModule } from 'ng-zorro-antd/checkbox';
 import { NzSliderModule } from 'ng-zorro-antd/slider';
-import { NzSwitchModule } from 'ng-zorro-antd/switch';
 
 import { NodeComponent } from './components/node/node.component';
 import { SvgContainerComponent } from './components/svg-container/svg-container.component';
@@ -52,7 +52,14 @@ enum Visibility {
   templateUrl: './dagre.component.html',
   styleUrls: ['./dagre.component.less'],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [SvgContainerComponent, NodeComponent, NzSliderModule, FormsModule, CommonModule, NzSwitchModule],
+  imports: [
+    SvgContainerComponent,
+    NodeComponent,
+    NzSliderModule,
+    FormsModule,
+    CommonModule,
+    NzCheckboxModule
+  ],
   standalone: true
 })
 export class DagreComponent extends NzGraph {
@@ -61,7 +68,7 @@ export class DagreComponent extends NzGraph {
   focusedLinkIds: string[] = [];
   selectedNodeId: string | null;
   zoom = 1;
-  isStreamGraph = false;
+  showPendingOperators = false;
   cacheTransform = { x: 0, y: 0, k: 1 };
   oldTransform = { x: 0, y: 0, k: 1 };
   cacheNodes: NodesItemCorrect[] = [];
@@ -144,7 +151,7 @@ export class DagreComponent extends NzGraph {
   }
 
   onGraphTypeChanged(): void {
-    this.graphTypeChanged.emit(this.isStreamGraph);
+    this.graphTypeChanged.emit(this.showPendingOperators);
   }
 
   /**

@@ -51,8 +51,6 @@ import { JobLocalService } from '../job-local.service';
 export class JobOverviewComponent implements OnInit, OnDestroy {
   public nodes: NodesItemCorrect[] = [];
   public links: NodesItemLink[] = [];
-  public streamNodes: NodesItemCorrect[] = [];
-  public streamLinks: NodesItemLink[] = [];
   public selectedNode: NodesItemCorrect | null;
   public top = 500;
   public jobId: string;
@@ -86,14 +84,10 @@ export class JobOverviewComponent implements OnInit, OnDestroy {
         if (this.jobId !== data.plan.jid || this.checkNodesChanged(data.plan.nodes)) {
           this.jobId = data.plan.jid;
           this.jobType = data['job-type'];
-          if (data.plan.streamNodes && data.plan.streamLinks) {
-            this.streamNodes = data.plan.streamNodes;
-            this.streamLinks = data.plan.streamLinks;
-          }
           this.nodes = data.plan.nodes;
           this.links = data.plan.links;
           this.nodesSet = new Set(this.nodes.map(n => n.id));
-          this.refreshGraph(this.dagreComponent.isStreamGraph);
+          this.refreshGraph(this.dagreComponent.showPendingOperators);
           this.refreshNodesWithMetrics();
         } else {
           this.nodes = data.plan.nodes;
@@ -118,6 +112,10 @@ export class JobOverviewComponent implements OnInit, OnDestroy {
 
   public initializedNodes(): NodesItemCorrect[] {
     return this.nodes.filter(node => node.initialized);
+  }
+
+  private initializedLinks(): NodesItemLink[] {
+    return this.links.filter(link => link.initialized);
   }
 
   public ngOnDestroy(): void {
@@ -151,7 +149,7 @@ export class JobOverviewComponent implements OnInit, OnDestroy {
   }
 
   public refreshNodesWithMetrics(): void {
-    if (this.dagreComponent.isStreamGraph) {
+    if (this.dagreComponent.showPendingOperators) {
       return;
     }
     this.mergeWithBackPressureAndSkew(this.initializedNodes())
@@ -203,7 +201,7 @@ export class JobOverviewComponent implements OnInit, OnDestroy {
   }
 
   private checkNodesChanged(updatedNodes: NodesItemCorrect[]): boolean {
-    if (this.dagreComponent.isStreamGraph) {
+    if (this.dagreComponent.showPendingOperators) {
       return false;
     }
     if (updatedNodes.length !== this.nodes.length) return true;
@@ -215,11 +213,11 @@ export class JobOverviewComponent implements OnInit, OnDestroy {
     return false;
   }
 
-  refreshGraph(isStreamGraph: boolean): void {
-    if (isStreamGraph) {
-      this.dagreComponent.flush(this.streamNodes, this.streamLinks, true).then();
-    } else {
+  refreshGraph(showPendingOperators: boolean): void {
+    if (showPendingOperators) {
       this.dagreComponent.flush(this.nodes, this.links, true).then();
+    } else {
+      this.dagreComponent.flush(this.initializedNodes(), this.initializedLinks(), true).then();
     }
   }
 }
